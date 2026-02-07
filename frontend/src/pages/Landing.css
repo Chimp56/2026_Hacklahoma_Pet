@@ -1,0 +1,257 @@
+/* Landing page ONLY */
+
+.lp {
+  --bg: #f7efe6;          /* warm background */
+  --soft: #eaf4ff;        /* light blue section */
+  --card: #ffffff;
+  --text: #111827;
+  --muted: #475569;
+  --border: rgba(0, 0, 0, 0.08);
+  --accent: #ff7a1a;
+  --accent2: #ffb27a;
+
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+/* container */
+.lp__container {
+  width: min(1150px, calc(100% - 48px));
+  margin: 0 auto;
+}
+
+/* navbar */
+.lp__nav {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: rgba(247, 239, 230, 0.85);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border);
+}
+
+.lp__navInner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 0;
+}
+
+.lp__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.lp__logo {
+  width: 90px;
+  height: 90px;
+  object-fit: contain;
+}
+
+.lp__brandName {
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.lp__links {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.lp__links a {
+  text-decoration: none;
+  color: var(--text);
+  font-weight: 600;
+  opacity: 0.9;
+}
+
+.lp__links a:hover {
+  opacity: 1;
+}
+
+/* sections */
+.lp__section {
+  padding: 84px 0;
+}
+
+.lp__soft {
+  background: var(--soft);
+}
+
+/* hero */
+.lp__hero {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 64px;
+  align-items: center;
+}
+
+.lp__title {
+  margin: 0;
+  font-size: clamp(2.2rem, 4vw, 3.4rem);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+}
+
+.lp__accent {
+  color: var(--accent);
+}
+
+.lp__subtitle {
+  margin-top: 18px;
+  color: var(--muted);
+  font-size: 1.05rem;
+  max-width: 520px;
+}
+
+.lp__actions {
+  margin-top: 26px;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* buttons */
+.lp__btn {
+  border: 1px solid var(--border);
+  background: white;
+  padding: 11px 18px;
+  border-radius: 999px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.lp__btnPrimary {
+  background: var(--accent);
+  color: white;
+  border-color: transparent;
+}
+
+.lp__btnPrimary:hover {
+  filter: brightness(0.95);
+}
+
+.lp__btnGhost {
+  background: transparent;
+}
+
+/* pills */
+.lp__pills {
+  margin-top: 22px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.lp__pill {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 10px 14px;
+  font-weight: 700;
+  box-shadow: 0 10px 24px rgba(0,0,0,0.06);
+}
+
+/* hero art (using logo as placeholder) */
+.lp__heroArt {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 28px;
+  padding: 34px;
+  box-shadow: 0 18px 40px rgba(0,0,0,0.07);
+  display: grid;
+  place-items: center;
+}
+
+.lp__heroImg {
+  width: 480px;
+  height: 480px;
+  object-fit: contain;
+  opacity: 0.95;
+}
+
+/* benefits */
+.lp__h2 {
+  margin: 0 0 26px 0;
+  font-size: 1.6rem;
+  letter-spacing: -0.02em;
+}
+
+.lp__grid3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.lp__card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  padding: 22px;
+  box-shadow: 0 16px 34px rgba(0,0,0,0.06);
+}
+
+.lp__card h3 {
+  margin: 12px 0 8px 0;
+}
+
+.lp__card p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.lp__cardIcon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--accent2), #ffd7bf);
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(0,0,0,0.06);
+}
+
+.lp__cardIcon img {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+
+/* FAQ */
+.lp__faq {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.lp__faqItem {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  padding: 18px;
+}
+
+.lp__faqItem h4 {
+  margin: 0 0 10px 0;
+}
+
+.lp__faqItem p {
+  margin: 0;
+  color: var(--muted);
+}
+
+/* responsive */
+@media (max-width: 900px) {
+  .lp__hero {
+    grid-template-columns: 1fr;
+  }
+  .lp__heroArt {
+    margin-top: 20px;
+  }
+  .lp__grid3,
+  .lp__faq {
+    grid-template-columns: 1fr;
+  }
+}
