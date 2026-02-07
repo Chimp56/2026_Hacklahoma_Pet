@@ -7,7 +7,7 @@ name = "pet-api"
 version = "0.1.0"
 description = "Pet API - FastAPI backend"
 readme = "README.md"
-requires-python = "==3.10.11"
+requires-python = ">=3.11"
 dependencies = [
     "fastapi",
     "uvicorn[standard]>=0.27.0",
@@ -16,6 +16,10 @@ dependencies = [
     "sqlalchemy[asyncio]>=2.0.25",
     "asyncpg>=0.29.0",
     "httpx>=0.26.0",
+    "google-generativeai>=0.8.0",
+    "pillow>=10.0.0",
+    "google>=3.0.0",
+    "python-multipart>=0.0.22",
 ]
 
 [project.optional-dependencies]
