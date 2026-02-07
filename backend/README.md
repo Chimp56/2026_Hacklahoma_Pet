@@ -4,21 +4,21 @@ FastAPI backend with async SQLAlchemy, Pydantic v2, and versioned API.
 
 ## Setup
 
-Python 3.10 (recommended)
+Install uv: https://docs.astral.sh/uv/getting-started/installation/
 
 ```bash
 cd backend
-python -m venv .venv
+uv venv
 # .venv/Scripts/activate   # Windows
 source .venv/bin/activate  # macOS/Linux
-pip install -r requirements.txt --no-deps
+uv sync
 cp .env.example .env     # Edit .env with your DATABASE_URL and SECRET_KEY
 ```
 
 ## Run
 
 ```bash
-python run.py
+uv run run.py
 # or: uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
