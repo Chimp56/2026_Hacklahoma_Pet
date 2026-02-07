@@ -94,3 +94,38 @@ body {
   border-radius: 10px;
   border: 1px solid #e5e7eb;
 }
+
+.page {
+  padding: 40px;
+}
+
+.form,
+.upload {
+  max-width: 320px;
+  margin-top: 20px;
+}
+
+.form input,
+.upload input {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 12px;
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.card {
+  background: white;
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+.muted {
+  color: #666;
+}
