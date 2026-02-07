@@ -1,0 +1,18 @@
+# FastAPI & server
+fastapi
+uvicorn
+
+# Config & validation
+pydantic
+pydantic-settings
+
+# Database (async)
+sqlalchemy[asyncio]
+asyncpg
+
+# HTTP client (for external APIs)
+httpx
+# Dev & quality
+pytest
+pytest-asyncio
+ruff
