@@ -17,6 +17,13 @@ class BreedGuess(BaseModel):
     percentage: float = Field(..., ge=0, le=100, description="Confidence percentage")
 
 
+class GenerateTextRequest(BaseModel):
+    """Request for Llama text generation (Hugging Face)."""
+
+    prompt: str = Field(..., min_length=1, description="Text prompt")
+    max_new_tokens: int = Field(512, ge=1, le=2048, description="Max tokens to generate")
+
+
 class PetAnalysisResponse(BaseModel):
     """Structured response from Gemini pet image analysis."""
 

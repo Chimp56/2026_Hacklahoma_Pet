@@ -1,7 +1,9 @@
 """Async database session and engine."""
 
+import ssl
 from collections.abc import AsyncGenerator
-from typing import AsyncContextManager
+from typing import Any
+from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
@@ -12,11 +14,40 @@ from sqlalchemy.ext.asyncio import (
 from app.config import get_settings
 from app.db.base import Base
 
+# asyncpg does not accept these as connect() kwargs; strip from URL and handle ssl via connect_args
+_ASYNCPG_STRIP_QUERY = (
+    "sslmode",
+    "sslcert",
+    "sslkey",
+    "sslrootcert",
+    "channel_binding",  # psycopg/libpq only; asyncpg.connect() does not accept it
+)
+
+
+def _url_and_connect_args_for_asyncpg(url: str) -> tuple[str, dict[str, Any]]:
+    """Remove sslmode, channel_binding (and similar) from URL; return clean URL and connect_args for asyncpg."""
+    parsed = urlparse(url)
+    if not parsed.query:
+        return url, {}
+    q = parse_qs(parsed.query, keep_blank_values=True)
+    ssl_requested = "sslmode" in q
+    for key in _ASYNCPG_STRIP_QUERY:
+        q.pop(key, None)
+    new_query = urlencode(q, doseq=True)
+    clean = urlunparse(parsed._replace(query=new_query))
+    connect_args: dict[str, Any] = {}
+    if ssl_requested:
+        connect_args["ssl"] = ssl.create_default_context()
+    return clean, connect_args
+
+
 settings = get_settings()
+_db_url, _connect_args = _url_and_connect_args_for_asyncpg(settings.database_url_asyncpg)
 engine = create_async_engine(
-    settings.database_url,
+    _db_url,
     echo=settings.debug,
     future=True,
+    connect_args=_connect_args,
 )
 
 async_session_maker = async_sessionmaker(
