@@ -25,7 +25,7 @@ class GenerateTextRequest(BaseModel):
 
 
 class PetAnalysisResponse(BaseModel):
-    """Structured response from Gemini pet image analysis."""
+    """Structured response from Gemini pet image analysis (breed finder)."""
 
     species: list[SpeciesGuess] = Field(
         default_factory=list,
@@ -34,6 +34,28 @@ class PetAnalysisResponse(BaseModel):
     breeds: list[BreedGuess] = Field(
         default_factory=list,
         description="Breed predictions with percentages when applicable (e.g. Golden Retriever 80%)",
+    )
+    primary_breed_or_species: str = Field(
+        default="",
+        description="Primary label for display (e.g. Golden Retriever Mix, Labrador)",
+    )
+    match_score: int = Field(
+        default=0,
+        ge=0,
+        le=100,
+        description="Confidence match score 0-100 (e.g. 94 for 94% MATCH)",
+    )
+    description: str = Field(
+        default="",
+        description="Short paragraph describing the pet's characteristics and breed heritage",
+    )
+    tags: list[str] = Field(
+        default_factory=list,
+        description="Trait tags (e.g. Friendly, Energetic, Intelligent)",
+    )
+    is_purebred: bool = Field(
+        default=False,
+        description="True when a single breed is identified with high confidence (e.g. one breed at 98%+). When False, show breed percentage breakdown.",
     )
 
 

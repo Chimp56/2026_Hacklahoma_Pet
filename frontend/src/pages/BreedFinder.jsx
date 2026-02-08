@@ -1,10 +1,14 @@
 import React, { useState, useRef } from 'react';
 import { Link } from "react-router-dom";
+import api from "../api/api";
 
 export default function BreedFinder() {
   const [selectedImage, setSelectedImage] = useState(null);
+  const [selectedFile, setSelectedFile] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState(null);
+  const [error, setError] = useState("");
+  const [showBreedBreakdown, setShowBreedBreakdown] = useState(false);
   const fileInputRef = useRef(null);
 
   const navbarHeight = '70px';
@@ -37,21 +41,43 @@ export default function BreedFinder() {
     const file = e.target.files[0];
     if (file) {
       setSelectedImage(URL.createObjectURL(file));
+      setSelectedFile(file);
       setResult(null);
+      setError("");
     }
   };
 
-  const analyzeBreed = () => {
+  const analyzeBreed = async () => {
+    if (!selectedFile) return;
     setIsAnalyzing(true);
-    setTimeout(() => {
-      setIsAnalyzing(false);
+    setError("");
+    setResult(null);
+    try {
+      const data = await api.gemini.analyzePet(selectedFile);
+      const breedList = Array.isArray(data.breeds) ? data.breeds : [];
+      const breed = data.primary_breed_or_species || breedList[0]?.breed || (data.species?.[0]?.species) || "Unknown";
+      const matchScore = data.match_score ?? breedList[0]?.percentage ?? data.species?.[0]?.percentage ?? 0;
+      const scoreInt = typeof matchScore === "number" ? Math.round(matchScore) : parseInt(matchScore, 10) || 0;
+      const isPurebred = data.is_purebred === true;
+      const breedBreakdown = breedList.map((b) => ({
+        breed: b.breed || b.name || "Unknown",
+        percentage: typeof b.percentage === "number" ? Math.round(b.percentage) : parseInt(b.percentage, 10) || 0,
+      })).filter((b) => b.breed && b.percentage > 0);
       setResult({
-        breed: "Golden Retriever Mix",
-        confidence: "94%",
-        traits: ["Friendly", "Energetic", "Intelligent"],
-        description: "Your pet shows strong characteristics of a Golden Retriever, likely mixed with a smaller sporting breed based on the ear shape and coat texture."
+        breed,
+        confidence: `${scoreInt}%`,
+        traits: Array.isArray(data.tags) && data.tags.length > 0 ? data.tags : ["Friendly", "Energetic", "Intelligent"],
+        description: data.description || "Breed analysis complete.",
+        isPurebred,
+        breedBreakdown,
       });
-    }, 3000);
+      setShowBreedBreakdown(false);
+    } catch (e) {
+      const msg = e?.detail ?? e?.message ?? "Analysis failed.";
+      setError(Array.isArray(msg) ? msg.join(" ") : String(msg));
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   return (
@@ -142,7 +168,7 @@ export default function BreedFinder() {
                     ))}
                   </div>
                 </div>
-                <button onClick={() => {setSelectedImage(null); setResult(null);}} style={{ marginTop: '16px', width: '100%', padding: '14px', borderRadius: '12px', border: 'none', background: colors.textMain, color: 'white', fontWeight: '700', cursor: 'pointer' }}>Scan Another Pet</button>
+                <button onClick={() => { setSelectedImage(null); setSelectedFile(null); setResult(null); setError(""); setShowBreedBreakdown(false); }} style={{ marginTop: '16px', width: '100%', padding: '14px', borderRadius: '12px', border: 'none', background: colors.textMain, color: 'white', fontWeight: '700', cursor: 'pointer' }}>Scan Another Pet</button>
               </div>
             )}
           </div>

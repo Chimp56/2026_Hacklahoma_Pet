@@ -28,12 +28,20 @@ IMAGE_PROMPT = """Analyze this image of an animal (pet or wildlife). Return ONLY
 
 {
   "species": [{"species": "<name>", "percentage": <0-100>}, ...],
-  "breeds": [{"breed": "<name>", "percentage": <0-100>}, ...]
+  "breeds": [{"breed": "<name>", "percentage": <0-100>}, ...],
+  "primary_breed_or_species": "<single display label, e.g. Golden Retriever Mix or Labrador>",
+  "match_score": <0-100 integer, confidence in the primary identification>,
+  "description": "<1-3 sentences describing the pet's physical traits and likely breed heritage>",
+  "tags": ["<trait1>", "<trait2>", "<trait3>"]
 }
 
 Rules:
 - species: list possible species with confidence percentages. If only one animal is clearly one species, use one entry with 100.
 - breeds: list possible breeds with confidence when applicable. If no breed concept, use [].
+- primary_breed_or_species: one human-readable label (breed name, mix, or species if no breed).
+- match_score: 0-100 confidence for that primary label.
+- description: short paragraph about appearance and breed heritage (e.g. ear shape, coat, mix).
+- tags: 3-6 trait words (e.g. Friendly, Energetic, Intelligent, Playful, Loyal, Calm).
 - Return only the JSON object, nothing else."""
 
 AUDIO_PROMPT = """Analyze this audio of an animal (pet sounds: barking, meowing, etc.). Return ONLY a single JSON object with no markdown, using this structure:

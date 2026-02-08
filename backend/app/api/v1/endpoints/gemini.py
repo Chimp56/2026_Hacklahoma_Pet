@@ -56,7 +56,7 @@ async def analyze_pet_image(
         raise HTTPException(status_code=400, detail=str(e)) from e
 
     try:
-        result = await analyzer.analyze_image(body, content_type)
+        raw = await analyzer.analyze_image(body, content_type)
     except NotImplementedError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except ValueError as e:
@@ -64,7 +64,60 @@ async def analyze_pet_image(
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"AI provider error: {e!s}") from e
 
-    return PetAnalysisResponse.model_validate(result)
+    # Map raw dict to PetAnalysisResponse (species/breeds + primary_breed_or_species, match_score, description, tags)
+    species = raw.get("species") or []
+    breeds = raw.get("breeds") or []
+    primary = (raw.get("primary_breed_or_species") or raw.get("primary_label") or "").strip()
+    match_score = raw.get("match_score")
+    if match_score is not None:
+        match_score = max(0, min(100, int(match_score)))
+    else:
+        # Derive from first breed or species percentage
+        if breeds and isinstance(breeds[0], dict):
+            match_score = int(breeds[0].get("percentage", 0) or 0)
+        elif species and isinstance(species[0], dict):
+            match_score = int(species[0].get("percentage", 0) or 0)
+        else:
+            match_score = 0
+    if not primary and breeds and isinstance(breeds[0], dict):
+        primary = breeds[0].get("breed") or breeds[0].get("name") or ""
+    if not primary and species and isinstance(species[0], dict):
+        primary = species[0].get("species") or species[0].get("name") or ""
+
+    description = (raw.get("description") or "").strip()
+    tags_raw = raw.get("tags")
+    tags = [str(t).strip() for t in tags_raw] if isinstance(tags_raw, list) else []
+
+    # Normalize breeds: ensure list of {breed, percentage}, sort by percentage desc
+    def _norm_breed(b: dict) -> dict:
+        if not isinstance(b, dict):
+            return {"breed": "", "percentage": 0.0}
+        name = b.get("breed") or b.get("name") or ""
+        pct = b.get("percentage")
+        pct = float(pct) if pct is not None else 0.0
+        pct = max(0.0, min(100.0, pct))
+        return {"breed": name, "percentage": pct}
+
+    breeds_normalized = sorted(
+        [_norm_breed(b) for b in breeds],
+        key=lambda x: x["percentage"],
+        reverse=True,
+    )
+    # Consider purebred when single breed at 98%+ (or 100%)
+    is_purebred = (
+        len(breeds_normalized) == 1
+        and breeds_normalized[0].get("percentage", 0) >= 98.0
+    )
+
+    return PetAnalysisResponse.model_validate({
+        "species": species,
+        "breeds": breeds_normalized,
+        "primary_breed_or_species": primary,
+        "match_score": match_score,
+        "description": description,
+        "tags": tags,
+        "is_purebred": is_purebred,
+    })
 
 
 def _normalize_audio_response(raw: dict) -> AudioAnalysisResponse:
