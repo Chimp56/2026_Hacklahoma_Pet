@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { usePet } from '../PetContext'; 
 
 // Assets
 import post1 from "../assets/post1.png";
@@ -20,7 +21,7 @@ const CURRENT_USER = {
   id: "me",
   username: "asbah",
   displayName: "Asbah",
-  avatar: avatar3, // change if you want
+  avatar: avatar3, 
 };
 
 const seedPosts = [
@@ -94,6 +95,11 @@ function trendScore(p) {
 }
 
 export default function Community() {
+  // --- SIDEBAR & PET SWITCHER STATE ---
+  const { pets, activePet, setActivePet } = usePet();
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+
   const [posts, setPosts] = useState(seedPosts);
 
   const [sortMode, setSortMode] = useState("latest"); // latest | trending | following
@@ -118,9 +124,12 @@ export default function Community() {
     bgGradient: 'linear-gradient(135deg, #EEF2FF 0%, #F5F3FF 100%)',
     sidebarBg: 'rgba(255, 255, 255, 0.95)',
     primary: '#A78BFA',
+    primaryDark: '#8B5CF6',
+    textMain: '#1E293B',
     textMuted: '#64748B',
     border: '#E2E8F0',
-    danger: '#EF4444'
+    danger: '#EF4444',
+    accent: '#F5F3FF'
   };
 
   const locations = useMemo(() => {
@@ -250,28 +259,68 @@ export default function Community() {
 
     setPosts((prev) => [newPost, ...prev]);
     setComposerOpen(false);
-    setShowMine(true); // nice UX: instantly see your post
+    setShowMine(true); 
   }
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', width: '100vw', background: colors.bgGradient, fontFamily: "'Inter', sans-serif", overflow: 'hidden' }}>
       
+      {/* FLOATING RE-OPEN BUTTON */}
+      {!sidebarOpen && (
+        <button 
+          onClick={() => setSidebarOpen(true)}
+          style={{
+            position: 'fixed', left: '20px', top: '85px', zIndex: 1000,
+            background: colors.primary, color: 'white', border: 'none',
+            borderRadius: '50%', width: '40px', height: '40px', cursor: 'pointer',
+            boxShadow: '0 4px 12px rgba(167, 139, 250, 0.4)', fontSize: '18px'
+          }}
+        >
+          ➼ 
+        </button>
+      )}
+
       {/* SIDEBAR */}
       <aside style={{ 
-        width: '280px', 
-        height: 'calc(100vh - 70px)', 
-        background: colors.sidebarBg, 
-        backdropFilter: 'blur(15px)', 
-        borderRight: `1px solid ${colors.border}`, 
-        padding: '20px', 
-        position: 'fixed', 
-        left: 0, 
-        top: '70px', 
-        zIndex: 10, 
-        display: 'flex', 
-        flexDirection: 'column', 
-        boxSizing: 'border-box' 
+        width: '280px', height: 'calc(100vh - 70px)', background: colors.sidebarBg, 
+        backdropFilter: 'blur(15px)', borderRight: `1px solid ${colors.border}`, 
+        padding: '20px', position: 'fixed', 
+        left: sidebarOpen ? 0 : '-280px', 
+        top: '70px', zIndex: 99, display: 'flex', flexDirection: 'column', 
+        boxSizing: 'border-box', transition: 'left 0.3s ease-in-out'
       }}>
+        
+        <button 
+          onClick={() => setSidebarOpen(false)}
+          style={{ position: 'absolute', right: '15px', top: '15px', background: 'none', border: 'none', color: colors.textMuted, fontSize: '18px', cursor: 'pointer', fontWeight: 'bold', opacity: 0.6 }}
+        >
+          ✕
+        </button>
+
+        {/* PET SWITCHER */}
+        <div style={{ marginBottom: '25px', position: 'relative', marginTop: '10px' }}>
+          <label style={{ fontSize: '10px', fontWeight: '900', opacity: 0.7, letterSpacing: '1.2px', textTransform: 'uppercase', display: 'block', marginBottom: '8px', color: colors.textMain }}>
+            Active Profile
+          </label>
+          <div onClick={() => setIsDropdownOpen(!isDropdownOpen)} style={{ display: 'flex', alignItems: 'center', gap: '12px', background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryDark} 100%)`, padding: '12px 16px', borderRadius: '20px', cursor: 'pointer', boxShadow: '0 8px 20px rgba(167, 139, 250, 0.3)', color: 'white' }}>
+            <span style={{ fontSize: '24px' }}>{activePet?.image || '🐾'}</span>
+            <span style={{ fontWeight: '800', flex: 1 }}>{activePet?.name}</span>
+            <span style={{ fontSize: '10px', transform: isDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.3s ease' }}>▼</span>
+          </div>
+
+          {isDropdownOpen && (
+            <div style={{ position: 'absolute', top: '110%', left: 0, right: 0, backgroundColor: 'white', borderRadius: '20px', boxShadow: '0 15px 35px rgba(0,0,0,0.1)', padding: '8px', zIndex: 1000, border: `1px solid ${colors.border}` }}>
+              {pets.map(pet => (
+                <div key={pet.id} onClick={() => { setActivePet(pet); setIsDropdownOpen(false); }} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', borderRadius: '12px', cursor: 'pointer', backgroundColor: activePet?.id === pet.id ? colors.accent : 'transparent' }}>
+                  <span style={{ fontSize: '20px' }}>{pet.image}</span>
+                  <span style={{ fontWeight: '700', color: colors.textMain, flex: 1 }}>{pet.name}</span>
+                  {activePet?.id === pet.id && <span style={{ color: colors.primary }}>✓</span>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         <nav style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
           <Link to="/home" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', textDecoration: 'none', color: colors.textMuted, fontWeight: '600', borderRadius: '12px' }}>🏠 Dashboard</Link>
           <Link to="/moniter" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', textDecoration: 'none', color: colors.textMuted, fontWeight: '600', borderRadius: '12px' }}>📹 Monitor</Link>
@@ -282,12 +331,20 @@ export default function Community() {
 
         <div style={{ marginTop: 'auto', borderTop: `1px solid ${colors.border}`, paddingTop: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
           <Link to="/settings" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', textDecoration: 'none', color: colors.textMuted, fontWeight: '600', borderRadius: '12px' }}>⚙️ Account Settings</Link>
-          <button style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', background: 'none', border: 'none', color: colors.danger, fontWeight: '700', cursor: 'pointer', textAlign: 'left' }}>🚪 Log Out</button>
+          <Link to="/auth" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', background: 'none', border: 'none', color: colors.danger, fontWeight: '700', fontSize: '16px', cursor: 'pointer', textAlign: 'left' }}>🚪 Log Out</Link>
         </div>
       </aside>
 
       {/* MAIN CONTENT */}
-      <main style={{ flex: 1, marginLeft: '280px', marginTop: '70px', height: 'calc(100vh - 70px)', overflowY: 'auto', boxSizing: 'border-box' }}>
+      <main style={{ 
+        flex: 1, 
+        marginLeft: sidebarOpen ? '280px' : '0px', 
+        marginTop: '70px', 
+        height: 'calc(100vh - 70px)', 
+        overflowY: 'auto', 
+        transition: 'margin-left 0.3s ease-in-out',
+        boxSizing: 'border-box' 
+      }}>
         <div className="comm">
           <div className="comm__container">
             {/* Top bar: actions + search + filters */}

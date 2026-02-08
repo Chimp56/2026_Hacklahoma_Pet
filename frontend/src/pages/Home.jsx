@@ -5,6 +5,7 @@ import { usePet } from '../PetContext';
 export default function Home({ events = [], petStats = {} }) {
   const { pets, activePet, setActivePet } = usePet();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true); // Added: Sidebar state
   const navigate = useNavigate();
 
   const navbarHeight = '70px';
@@ -23,6 +24,7 @@ export default function Home({ events = [], petStats = {} }) {
     textMuted: '#64748B',
     white: '#FFFFFF',
     accent: '#F5F3FF',
+    danger: '#EF4444',
     live: '#EF4444',
     border: '#E2E8F0'
   };
@@ -50,14 +52,20 @@ export default function Home({ events = [], petStats = {} }) {
   const sidebarStyle = {
     width: '280px', height: `calc(100vh - ${navbarHeight})`, backgroundColor: colors.sidebarBg,
     backdropFilter: 'blur(15px)', borderRight: `1px solid ${colors.border}`, display: 'flex',
-    flexDirection: 'column', padding: '30px 20px', position: 'fixed', left: 0, top: navbarHeight,
-    boxSizing: 'border-box', zIndex: 900
+    flexDirection: 'column', padding: '30px 20px', position: 'fixed', 
+    left: sidebarOpen ? 0 : '-280px', // Dynamic positioning
+    top: navbarHeight,
+    boxSizing: 'border-box', zIndex: 900,
+    transition: 'left 0.3s ease-in-out' // Smooth sliding
   };
 
   const mainContentStyle = {
-    marginLeft: '280px', marginTop: navbarHeight, padding: '40px 60px',
-    height: `calc(100vh - ${navbarHeight})`, width: 'calc(100% - 280px)',
-    overflowY: 'auto', boxSizing: 'border-box'
+    marginLeft: sidebarOpen ? '280px' : '0px', // Dynamic margin
+    marginTop: navbarHeight, padding: '40px 60px',
+    height: `calc(100vh - ${navbarHeight})`, 
+    width: sidebarOpen ? 'calc(100% - 280px)' : '100%', // Dynamic width
+    overflowY: 'auto', boxSizing: 'border-box',
+    transition: 'margin-left 0.3s ease-in-out, width 0.3s ease-in-out' // Smooth expansion
   };
 
   const cardStyle = {
@@ -67,7 +75,35 @@ export default function Home({ events = [], petStats = {} }) {
 
   return (
     <div style={pageWrapperStyle}>
+      
+      {/* FLOATING OPEN BUTTON (Only visible when sidebar is closed) */}
+      {!sidebarOpen && (
+        <button 
+          onClick={() => setSidebarOpen(true)}
+          style={{
+            position: 'fixed', left: '20px', top: '85px', zIndex: 1000,
+            background: colors.primary, color: 'white', border: 'none',
+            borderRadius: '50%', width: '40px', height: '40px', cursor: 'pointer',
+            boxShadow: '0 4px 12px rgba(167, 139, 250, 0.4)', fontSize: '18px'
+          }}
+        >
+          ➼ 
+        </button>
+      )}
+
       <aside style={sidebarStyle}>
+        {/* CLOSE SIDEBAR BUTTON */}
+        <button 
+          onClick={() => setSidebarOpen(false)}
+          style={{
+            position: 'absolute', right: '10px', top: '10px',
+            background: 'none', border: 'none', color: colors.textMuted,
+            fontSize: '18px', cursor: 'pointer', fontWeight: 'bold'
+          }}
+        >
+          ✕
+        </button>
+
         <div style={{ marginBottom: '25px', position: 'relative' }}>
           <label style={{ fontSize: '10px', fontWeight: '900', opacity: 0.7, letterSpacing: '1.2px', textTransform: 'uppercase', display: 'block', marginBottom: '8px', color: colors.textMain }}>
             Active Profile
@@ -111,7 +147,7 @@ export default function Home({ events = [], petStats = {} }) {
 
         <div style={{ borderTop: `1px solid ${colors.border}`, paddingTop: '20px' }}>
           <Link to="/settings" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', textDecoration: 'none', color: colors.textMuted, fontWeight: '600', marginBottom: '8px' }}><span>⚙️</span> Account Settings</Link>
-          <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', textDecoration: 'none', color: '#EF4444', fontWeight: '600', borderRadius: '12px' }}><span>🚪</span> Logout</Link>
+          <Link to="/auth" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', background: 'none', border: 'none', color: colors.danger, fontWeight: '700', fontSize: '16px', cursor: 'pointer', textAlign: 'left' }}>🚪 Log Out</Link>
         </div>
       </aside>
 
@@ -125,7 +161,7 @@ export default function Home({ events = [], petStats = {} }) {
           </p>
         </header>
 
-        {/* PET PROFILE SECTION - NOW BELOW THE HEADING */}
+        {/* PET PROFILE SECTION */}
         <div style={{ ...cardStyle, marginBottom: '40px', display: 'flex', alignItems: 'center', gap: '30px', position: 'relative' }}>
           <div 
             onClick={() => navigate('/register-pet', { state: { petToEdit: activePet } })}
@@ -165,6 +201,7 @@ export default function Home({ events = [], petStats = {} }) {
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '25px', paddingBottom: '40px' }}>
+          {/* Card: Live Monitor */}
           <div style={cardStyle}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px' }}>
               <h3 style={{ margin: 0 }}>Live Monitor</h3>
@@ -178,6 +215,7 @@ export default function Home({ events = [], petStats = {} }) {
             </div>
           </div>
 
+          {/* Card: Sleep */}
           <div style={cardStyle}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <h3 style={{ margin: 0 }}>Weekly Sleep Activity 🌙</h3>
@@ -209,6 +247,7 @@ export default function Home({ events = [], petStats = {} }) {
             </div>
           </div>
 
+          {/* Card: Events */}
           <div style={cardStyle}>
             <h3 style={{ margin: '0 0 20px 0' }}>Upcoming Events</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -226,6 +265,7 @@ export default function Home({ events = [], petStats = {} }) {
             </div>
           </div>
 
+          {/* Card: Breed Identifier */}
           <div style={{ 
             ...cardStyle, 
             background: `linear-gradient(rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.95)), url('https://www.transparenttextures.com/patterns/p6.png')`,
