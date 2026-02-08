@@ -55,6 +55,7 @@ Base path: `/api/v1`. OpenAPI: `/api/docs`.
 - `POST /gemini/analyze-pet` – Image analysis (species/breeds).
 - `POST /gemini/analyze-audio` – Audio analysis; response includes `mood`, `confidence` (0–1), `species`, `breeds`, `description`.
 - `POST /gemini/analyze-activity` – Image analysis for Monitor/Camera: returns `sleep_minutes`, `meals_count`, `activity` (Low/Normal/High). Gemini only.
+- `POST /gemini/analyze-pet-video` – Video analysis (Gemini only): returns `activity_summary`, `hours_slept_per_day`, `hours_active`, `eating_habits`.
 
 **Frontend page → backend**
 

@@ -1,10 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from "react-router-dom";
 import { usePet } from '../PetContext';
+import api from '../api/api';
+
+const LIVE_MONITOR_CHANNEL = 'speedingchimp';
 
 export default function Home({ events = [], petStats = {} }) {
   const { pets, activePet, setActivePet } = usePet();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [streamRefreshKey, setStreamRefreshKey] = useState(0);
+  const [streamFrameError, setStreamFrameError] = useState(false);
 
   const navbarHeight = '70px';
   const petName = activePet?.name || "Buddy";
@@ -40,10 +45,18 @@ export default function Home({ events = [], petStats = {} }) {
   const upcomingEvents = events
     .filter(ev => {
       const evDate = new Date(ev.year, ev.month, ev.day);
-      return evDate >= new Date(2026, 1, 7); 
+      return evDate >= new Date(2026, 1, 7);
     })
     .sort((a, b) => new Date(a.year, a.month, a.day) - new Date(b.year, b.month, b.day))
     .slice(0, 3);
+
+  /** Live monitor thumbnail from API /stream/current-frame (refreshed periodically) */
+  const streamFrameUrl = `${api.getBaseUrl()}/stream/current-frame?channel=${encodeURIComponent(LIVE_MONITOR_CHANNEL)}&_=${streamRefreshKey}`;
+
+  useEffect(() => {
+    const interval = setInterval(() => setStreamRefreshKey((k) => k + 1), 15000);
+    return () => clearInterval(interval);
+  }, []);
 
   const pageWrapperStyle = {
     display: 'flex', height: '100vh', width: '100vw', background: colors.bgGradient,
@@ -137,8 +150,40 @@ export default function Home({ events = [], petStats = {} }) {
                 <span style={{ color: colors.live, fontSize: '12px', fontWeight: 'bold' }}>LIVE</span>
               </div>
             </div>
-            <div style={{ width: '100%', height: '200px', backgroundColor: '#F1F5F9', borderRadius: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px dashed #E2E8F0' }}>
-              <Link to="/moniter" style={{ color: colors.primary, textDecoration: 'none', fontWeight: 'bold' }}>Open Camera Feed →</Link>
+            <div style={{ width: '100%', height: '200px', backgroundColor: '#F1F5F9', borderRadius: '20px', overflow: 'hidden', position: 'relative', border: '2px solid #E2E8F0' }}>
+              {streamFrameError ? (
+                <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                  <span style={{ color: colors.textMuted, fontSize: '14px' }}>Stream unavailable</span>
+                  <Link to="/moniter" style={{ color: colors.primary, textDecoration: 'none', fontWeight: 'bold' }}>Open Camera Feed →</Link>
+                </div>
+              ) : (
+                <>
+                  <img
+                    src={streamFrameUrl}
+                    alt="Live stream preview"
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                    onError={() => setStreamFrameError(true)}
+                    onLoad={() => setStreamFrameError(false)}
+                  />
+                  <Link
+                    to="/moniter"
+                    style={{
+                      position: 'absolute',
+                      bottom: '12px',
+                      right: '12px',
+                      padding: '8px 14px',
+                      background: 'rgba(0,0,0,0.6)',
+                      color: 'white',
+                      borderRadius: '10px',
+                      fontSize: '13px',
+                      fontWeight: '600',
+                      textDecoration: 'none',
+                    }}
+                  >
+                    Open full feed →
+                  </Link>
+                </>
+              )}
             </div>
           </div>
 

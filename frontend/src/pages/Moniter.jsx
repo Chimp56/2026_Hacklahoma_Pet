@@ -1,12 +1,20 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import api from "../api/api";
 import "./Monitor.css";
+
+const BACKEND_CHANNEL = "speedingchimp";
+
+function base64UrlEncode(str) {
+  const base64 = btoa(unescape(encodeURIComponent(str)));
+  return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
 
 export default function Moniter() {
   const videoRef = useRef(null);
   const [mode, setMode] = useState("placeholder"); // "placeholder" | "webcam" | "backend"
   const [status, setStatus] = useState("Waiting for stream…");
-  
+
   const colors = {
     bgGradient: 'linear-gradient(135deg, #EEF2FF 0%, #F5F3FF 100%)',
     sidebarBg: 'rgba(255, 255, 255, 0.95)',
@@ -32,6 +40,35 @@ export default function Moniter() {
     })();
     return () => {
       if (stream) stream.getTracks().forEach((t) => t.stop());
+    };
+  }, [mode]);
+
+  // Backend stream: fetch URL from /api/v1/stream/url, then play via proxy
+  useEffect(() => {
+    if (mode !== "backend" || !videoRef.current) return;
+    const video = videoRef.current;
+    video.srcObject = null;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        setStatus("Loading stream…");
+        const { stream_url } = await api.stream.getUrl(BACKEND_CHANNEL);
+        if (cancelled) return;
+        const base = api.getBaseUrl();
+        const proxyUrl = `${base}/stream/proxy?channel=${encodeURIComponent(BACKEND_CHANNEL)}&url=${base64UrlEncode(stream_url)}`;
+        video.src = proxyUrl;
+        video.load();
+        setStatus("Live (backend)");
+      } catch (e) {
+        if (!cancelled) setStatus(e?.detail || e?.message || "Stream unavailable.");
+        video.removeAttribute("src");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      video.removeAttribute("src");
     };
   }, [mode]);
 

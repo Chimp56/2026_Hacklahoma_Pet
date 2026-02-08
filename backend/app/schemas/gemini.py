@@ -48,6 +48,31 @@ class ActivityAnalysisResponse(BaseModel):
     )
 
 
+class PetVideoAnalysisResponse(BaseModel):
+    """Structured response from Gemini pet video analysis (activity summary, sleep, active time, eating)."""
+
+    activity_summary: str = Field(
+        default="",
+        description="Summary of what the pet did in the video (activities, behaviors)",
+    )
+    hours_slept_per_day: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=24.0,
+        description="Estimated hours of sleep per day (0–24)",
+    )
+    hours_active: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=24.0,
+        description="Estimated hours active per day (0–24)",
+    )
+    eating_habits: str = Field(
+        default="",
+        description="Observed or inferred eating habits (e.g. meal times, appetite, grazing)",
+    )
+
+
 class AudioAnalysisResponse(BaseModel):
     """Normalized response from pet audio analysis (e.g. barking, meowing)."""
 

@@ -58,6 +58,21 @@ ACTIVITY_PROMPT = """Look at this image of a pet (or pet environment). Infer fro
 
 Return only the JSON object."""
 
+VIDEO_ACTIVITY_PROMPT = """Watch this video of a pet. Analyze the full video and return ONLY a single JSON object with no markdown or explanation. Estimate based on what you see in the video (and infer typical patterns if the video is a short clip).
+
+{
+  "activity_summary": "<string: concise summary of what the pet did in the video - activities, behaviors, notable moments>",
+  "hours_slept_per_day": <number 0-24: estimated hours the pet sleeps per day; use 0 if no sleep/rest visible or unknown>,
+  "hours_active": <number 0-24: estimated hours the pet is active per day; use 0 if unknown>,
+  "eating_habits": "<string: observed or inferred eating habits - e.g. meal frequency, appetite, grazing, feeding behavior, or 'Not observed' if no eating in video>"
+}
+
+Rules:
+- activity_summary: describe specific activities (playing, resting, eating, walking, etc.) seen in the video.
+- hours_slept_per_day and hours_active: if the video is a short clip, estimate typical daily totals; otherwise base on what you see.
+- eating_habits: only describe if eating is visible or strongly implied; otherwise use "Not observed".
+Return only the JSON object, nothing else."""
+
 
 def _parse_json(text: str) -> dict[str, Any]:
     raw = text.strip()
@@ -159,3 +174,31 @@ class GeminiAnalyzer(PetAnalyzer):
             return _parse_json(text)
 
         return self._rotate_and_retry(_generate)
+
+    async def analyze_pet_video(self, video_bytes: bytes, mime_type: str) -> dict[str, Any]:
+        """Analyze pet video; return activity summary, hours slept, hours active, eating habits."""
+
+        import os
+        import tempfile
+
+        suffix = ".mp4" if "mp4" in mime_type else ".webm"
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as f:
+            f.write(video_bytes)
+            path = f.name
+        try:
+
+            def _generate(client: genai.Client) -> dict[str, Any]:
+                uploaded = client.files.upload(file=path, mime_type=mime_type)
+                response = client.models.generate_content(
+                    model=self._model_name,
+                    contents=[uploaded, VIDEO_ACTIVITY_PROMPT],
+                )
+                text = (response.text or "{}").strip()
+                return _parse_json(text)
+
+            return self._rotate_and_retry(_generate)
+        finally:
+            try:
+                os.unlink(path)
+            except OSError:
+                pass

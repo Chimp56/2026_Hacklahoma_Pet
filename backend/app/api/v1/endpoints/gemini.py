@@ -7,6 +7,7 @@ from app.schemas.gemini import (
     AudioAnalysisResponse,
     GenerateTextRequest,
     PetAnalysisResponse,
+    PetVideoAnalysisResponse,
 )
 from app.services.ai.llama_provider import LlamaAnalyzer
 from app.services.ai.registry import MODEL_IDS, get_analyzer
@@ -15,7 +16,9 @@ router = APIRouter(prefix="/gemini", tags=["ai"])
 
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 ALLOWED_AUDIO_TYPES = {"audio/wav", "audio/wave", "audio/mpeg", "audio/mp3", "audio/webm"}
+ALLOWED_VIDEO_TYPES = {"video/mp4", "video/webm", "video/quicktime"}
 MAX_FILE_SIZE = 20 * 1024 * 1024  # 20 MB
+MAX_VIDEO_SIZE = 100 * 1024 * 1024  # 100 MB for video
 
 
 @router.get("/models", response_model=list[tuple[str, str]])
@@ -145,6 +148,35 @@ async def analyze_pet_audio(
     return _normalize_audio_response(result)
 
 
+def _normalize_video_response(raw: dict) -> PetVideoAnalysisResponse:
+    """Map provider dict to PetVideoAnalysisResponse."""
+    activity = raw.get("activity_summary", "")
+    if not isinstance(activity, str):
+        activity = str(activity) if activity is not None else ""
+
+    def _float_bounded(key: str, default: float = 0.0, lo: float = 0.0, hi: float = 24.0) -> float:
+        v = raw.get(key)
+        if v is None:
+            return default
+        try:
+            v = float(v)
+        except (TypeError, ValueError):
+            return default
+        return max(lo, min(hi, v))
+
+    hours_slept = _float_bounded("hours_slept_per_day")
+    hours_active = _float_bounded("hours_active")
+    eating = raw.get("eating_habits", "")
+    if not isinstance(eating, str):
+        eating = str(eating) if eating is not None else ""
+    return PetVideoAnalysisResponse(
+        activity_summary=activity.strip(),
+        hours_slept_per_day=hours_slept,
+        hours_active=hours_active,
+        eating_habits=eating.strip(),
+    )
+
+
 def _normalize_activity_response(raw: dict) -> ActivityAnalysisResponse:
     """Map provider dict to ActivityAnalysisResponse (sleep_minutes, meals_count, activity)."""
     sleep = raw.get("sleep_minutes")
@@ -206,6 +238,42 @@ async def analyze_activity(
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"AI provider error: {e!s}") from e
     return _normalize_activity_response(result)
+
+
+@router.post("/analyze-pet-video", response_model=PetVideoAnalysisResponse)
+async def analyze_pet_video(
+    file: UploadFile = File(..., description="Video of pet to analyze (activity, sleep, eating)"),
+    model: str = Query("gemini", description="Model id (video analysis supported: gemini only)"),
+) -> PetVideoAnalysisResponse:
+    """
+    Analyze a pet video with Gemini. Returns activity summary (what they did), estimated hours
+    slept per day, hours active, and eating habits. Only Gemini supports video; use model=gemini.
+    """
+    content_type = file.content_type or ""
+    if content_type not in ALLOWED_VIDEO_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid file type. Allowed: {', '.join(ALLOWED_VIDEO_TYPES)}",
+        )
+    body = await file.read()
+    if len(body) > MAX_VIDEO_SIZE:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Video too large. Max size: {MAX_VIDEO_SIZE // (1024*1024)} MB",
+        )
+    try:
+        analyzer = get_analyzer(model)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    try:
+        result = await analyzer.analyze_pet_video(body, content_type)
+    except NotImplementedError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except ValueError as e:
+        raise HTTPException(status_code=503, detail=str(e)) from e
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"AI provider error: {e!s}") from e
+    return _normalize_video_response(result)
 
 
 @router.post("/generate-text", response_model=dict)
