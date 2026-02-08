@@ -1,13 +1,14 @@
 /**
  * Backend API client for PetPulse.
- * Base URL: VITE_API_URL (default http://localhost:8000) + /api/v1
+ * Base URL: VITE_API_URL or VITE_API_BASE_URL (default https://api.quantara.co) + /api/v1
  * Auth: Bearer token in localStorage key "petpulse_token".
  */
 
 const TOKEN_KEY = "petpulse_token";
+const DEFAULT_API_BASE = "https://api.quantara.co";
 
 function getBaseUrl() {
-  const base = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
+  const base = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || DEFAULT_API_BASE;
   return String(base).replace(/\/$/, "") + "/api/v1";
 }
 

@@ -80,7 +80,7 @@ class Settings(BaseSettings):
     notification_flag_events: str = "milestone,health_alert,anomaly"
 
     # API public URL (e.g. https://api.quantara.co). Used for pet share links so QR points to this host.
-    api_base_url: str = "http://localhost:8000"
+    api_base_url: str = "https://api.quantara.co"
     # QR code: base URL for pet profile links (e.g. https://myapp.com or http://localhost:3000)
     pet_profile_base_url: str = "http://localhost:3000"
     # Optional: qr-code-generator.com API token (if set, use their API with preset logo; else generate locally with pet photo or paw)
