@@ -3,10 +3,10 @@ import { Link } from "react-router-dom";
 
 export default function Navbar() {
   const colors = {
-    primary: '#A78BFA', // Soft Purple to match your buttons
+    primary: '#A78BFA', // Soft Purple
     textMain: '#1E293B',
     textMuted: '#64748B',
-    bg: 'rgba(255, 255, 255, 0.8)', // Semi-transparent white
+    bg: 'rgba(255, 255, 255, 0.95)', // Slightly more opaque for better legibility
     border: '#E2E8F0'
   };
 
@@ -14,14 +14,18 @@ export default function Navbar() {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: '15px 40px',
+    padding: '0 40px',
+    height: '70px', // Explicit height to match your Home/Calendar offsets
     backgroundColor: colors.bg,
-    backdropFilter: 'blur(10px)', // Soft glass effect
+    backdropFilter: 'blur(10px)',
     borderBottom: `1px solid ${colors.border}`,
-    position: 'sticky',
+    position: 'fixed', // Changed from sticky to fixed
     top: 0,
-    zIndex: 1000,
-    fontFamily: 'sans-serif'
+    left: 0,
+    right: 0,
+    zIndex: 1100, // Higher than the sidebar (900)
+    fontFamily: "'Inter', sans-serif",
+    boxSizing: 'border-box'
   };
 
   const logoStyle = {
