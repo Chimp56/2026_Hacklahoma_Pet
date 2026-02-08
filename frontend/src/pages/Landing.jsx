@@ -1,5 +1,6 @@
 // src/pages/Landing.jsx
 import { useEffect, useMemo, useRef, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import "./Landing.css";
 
 // Images / icons (src/assets)
@@ -46,8 +47,38 @@ function HeroOverlayLogo() {
   );
 }
 
+// Text Flip Component
+function TextFlip({ words }) {
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setIndex((prev) => (prev + 1) % words.length);
+    }, 2500);
+    return () => clearInterval(interval);
+  }, [words.length]);
+
+  return (
+    <span style={{ display: "inline-block", position: "relative", minWidth: "200px" }}>
+      <AnimatePresence mode="wait">
+        <motion.span
+          key={index}
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: -20, opacity: 0 }}
+          transition={{ duration: 0.5, ease: "easeInOut" }}
+          style={{ position: "absolute", left: 0 }}
+        >
+          {words[index]}
+        </motion.span>
+      </AnimatePresence>
+    </span>
+  );
+}
+
 export default function Landing() {
   const trackRef = useRef(null);
+  const words = ["Understand", "Love", "Take care", "Look after", "Connect", "Support"];
 
   const communityCards = useMemo(
     () => [
@@ -71,9 +102,15 @@ export default function Landing() {
       <section className="lp__section">
         <div className="lp__container lp__hero">
           <div className="lp__heroLeft">
-            <h1 className="lp__title">
-              Understand your pet with <span className="lp__accent">data</span>.
-            </h1>
+            <motion.h1
+              initial={{ opacity: 0 }}
+              whileInView={{ opacity: 1 }}
+              transition={{ duration: 0.8 }}
+              className="lp__title"
+            >
+              <TextFlip words={words} /> your pet with{" "}
+              <span className="lp__accent">data</span>.
+            </motion.h1>
 
             <p className="lp__subtitle">
               Track sleep, activity, and behavior using AI-powered video + audio analysis.
@@ -150,7 +187,7 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* BENEFITS (change className to lp__softPurple if you made that class) */}
+      {/* BENEFITS */}
       <section id="benefits" className="lp__section lp__softPurple">
         <div className="lp__container">
           <h2 className="lp__h2">Benefits</h2>
