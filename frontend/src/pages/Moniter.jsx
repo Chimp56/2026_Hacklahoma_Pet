@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { usePet } from '../PetContext'; 
+import { usePet } from '../PetContext';
+import PetAvatar from '../components/PetAvatar';
 import emailjs from '@emailjs/browser';
 import "./Monitor.css";
 
@@ -183,7 +184,7 @@ export default function Monitor() {
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
             style={{ display: 'flex', alignItems: 'center', gap: '12px', background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryDark} 100%)`, padding: '12px 16px', borderRadius: '20px', cursor: 'pointer', boxShadow: '0 8px 20px rgba(167, 139, 250, 0.3)', color: 'white', transition: 'all 0.2s ease' }}
           >
-            <span style={{ fontSize: '24px' }}>{activePet?.image || '🐾'}</span>
+            <PetAvatar pet={activePet} size={28} />
             <span style={{ fontWeight: '800', flex: 1 }}>{activePet?.name}</span>
             <span style={{ fontSize: '10px', transform: isDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.3s ease' }}>▼</span>
           </div>
@@ -196,7 +197,7 @@ export default function Monitor() {
                   onClick={() => { setActivePet(pet); setIsDropdownOpen(false); }}
                   style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', borderRadius: '12px', cursor: 'pointer', backgroundColor: activePet?.id === pet.id ? colors.accent : 'transparent', transition: 'background 0.2s ease' }}
                 >
-                  <span style={{ fontSize: '20px' }}>{pet.image}</span>
+                  <PetAvatar pet={pet} size={24} />
                   <span style={{ fontWeight: '700', color: colors.textMain, flex: 1 }}>{pet.name}</span>
                   {activePet?.id === pet.id && <span style={{ color: colors.primary, fontWeight: 'bold' }}>✓</span>}
                 </div>

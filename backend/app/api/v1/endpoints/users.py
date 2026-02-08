@@ -6,7 +6,10 @@ from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
+from app.config import get_settings
 from app.core.dependencies import CurrentUser, DbSession
+from app.models.media_file import MediaFile
+from app.services.storage import get_storage
 from app.crud.eating_log import eating_log_crud
 from app.crud.sleep_log import sleep_log_crud
 from app.crud.user import user_crud
@@ -30,10 +33,30 @@ async def get_current_user_profile(current_user: CurrentUser) -> UserResponse:
     return current_user
 
 
+async def _pet_profile_photo_url(db: DbSession, pet_id: int) -> str | None:
+    """Return API URL for the pet's profile picture (same-origin, works like medical records)."""
+    result = await db.execute(
+        select(MediaFile)
+        .where(MediaFile.pet_id == pet_id, MediaFile.file_type == "image")
+        .order_by(MediaFile.id.desc())
+        .limit(1)
+    )
+    media = result.scalar_one_or_none()
+    if not media:
+        return None
+    base = get_settings().api_base_url.rstrip("/")
+    return f"{base}/api/v1/pets/{pet_id}/profile-picture"
+
+
 @router.get("/me/pets", response_model=list[PetResponse])
-async def list_my_pets(current_user: CurrentUser) -> list[PetResponse]:
-    """List all pets for the authenticated user. Requires Bearer token."""
-    return list(current_user.linked_pets)
+async def list_my_pets(db: DbSession, current_user: CurrentUser) -> list[PetResponse]:
+    """List all pets for the authenticated user. Requires Bearer token. Includes profile_photo_url."""
+    out = []
+    for pet in current_user.linked_pets:
+        data = PetResponse.model_validate(pet).model_dump()
+        data["profile_photo_url"] = await _pet_profile_photo_url(db, pet.id)
+        out.append(data)
+    return out
 
 
 @router.patch("/me", response_model=UserResponse)

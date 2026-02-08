@@ -26,6 +26,29 @@ from app.services.storage import get_storage
 
 router = APIRouter(prefix="/pets", tags=["pets"])
 
+ALLOWED_IMAGE = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+PROFILE_PHOTO_MAX_SIZE = 10 * 1024 * 1024  # 10 MB
+
+
+async def _get_pet_profile_photo_url(db: DbSession, pet_id: int) -> Optional[str]:
+    """Return the API URL for the pet's profile picture (same-origin, works like medical records)."""
+    media = await _get_pet_profile_photo_media(db, pet_id)
+    if not media:
+        return None
+    base = get_settings().api_base_url.rstrip("/")
+    return f"{base}/api/v1/pets/{pet_id}/profile-picture"
+
+
+async def _get_pet_profile_photo_media(db: DbSession, pet_id: int) -> Optional[MediaFile]:
+    """Return the latest MediaFile (image) for the pet, or None."""
+    result = await db.execute(
+        select(MediaFile)
+        .where(MediaFile.pet_id == pet_id, MediaFile.file_type == "image")
+        .order_by(MediaFile.id.desc())
+        .limit(1)
+    )
+    return result.scalar_one_or_none()
+
 
 @router.get("", response_model=list[PetResponse])
 async def list_pets(
@@ -35,7 +58,12 @@ async def list_pets(
 ) -> list[PetResponse]:
     """List pets with pagination."""
     pets = await pet_crud.get_multi(db, skip=skip, limit=limit)
-    return list(pets)
+    out = []
+    for pet in pets:
+        data = PetResponse.model_validate(pet).model_dump()
+        data["profile_photo_url"] = await _get_pet_profile_photo_url(db, pet.id)
+        out.append(data)
+    return out
 
 
 @router.get("/{pet_id}", response_model=PetResponse)
@@ -44,7 +72,9 @@ async def get_pet(db: DbSession, pet_id: int) -> PetResponse:
     pet = await pet_crud.get(db, id=pet_id)
     if not pet:
         raise HTTPException(status_code=404, detail="Pet not found")
-    return pet
+    data = PetResponse.model_validate(pet).model_dump()
+    data["profile_photo_url"] = await _get_pet_profile_photo_url(db, pet_id)
+    return data
 
 
 @router.post("", response_model=PetResponse, status_code=201)
@@ -56,7 +86,9 @@ async def create_pet(db: DbSession, body: PetCreate) -> PetResponse:
         if user:
             user.linked_pets.append(pet)
             await db.flush()
-    return pet
+    data = PetResponse.model_validate(pet).model_dump()
+    data["profile_photo_url"] = await _get_pet_profile_photo_url(db, pet.id)
+    return data
 
 
 @router.patch("/{pet_id}", response_model=PetResponse)
@@ -65,7 +97,74 @@ async def update_pet(db: DbSession, pet_id: int, body: PetUpdate) -> PetResponse
     pet = await pet_crud.get(db, id=pet_id)
     if not pet:
         raise HTTPException(status_code=404, detail="Pet not found")
-    return await pet_crud.update(db, db_obj=pet, obj_in=body)
+    updated = await pet_crud.update(db, db_obj=pet, obj_in=body)
+    data = PetResponse.model_validate(updated).model_dump()
+    data["profile_photo_url"] = await _get_pet_profile_photo_url(db, pet_id)
+    return data
+
+
+@router.get("/{pet_id}/profile-picture", response_class=Response)
+async def get_pet_profile_picture(db: DbSession, pet_id: int) -> Response:
+    """
+    Return the pet's current profile picture (latest uploaded image).
+    Use this URL as img src when storage does not provide a public URL (e.g. local dev).
+    """
+    pet = await pet_crud.get(db, id=pet_id)
+    if not pet:
+        raise HTTPException(status_code=404, detail="Pet not found")
+    media = await _get_pet_profile_photo_media(db, pet_id)
+    if not media:
+        raise HTTPException(status_code=404, detail="No profile picture set for this pet")
+    storage = get_storage()
+    try:
+        body = storage.read(media.storage_key)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Profile picture file not found") from None
+    return Response(content=body, media_type=media.mime_type)
+
+
+@router.post("/{pet_id}/profile-picture")
+async def upload_pet_profile_picture(
+    db: DbSession,
+    pet_id: int,
+    file: UploadFile = File(...),
+) -> dict:
+    """
+    Upload a profile picture for the pet. Accepts image/jpeg, image/png, image/webp, image/gif.
+    Returns url (from storage if available) and profile_picture_url (API endpoint to display the image).
+    """
+    pet = await pet_crud.get(db, id=pet_id)
+    if not pet:
+        raise HTTPException(status_code=404, detail="Pet not found")
+    content_type = (file.content_type or "").strip().lower()
+    if content_type not in ALLOWED_IMAGE:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid type. Allowed: image/jpeg, image/png, image/webp, image/gif",
+        )
+    body = await file.read()
+    if len(body) > PROFILE_PHOTO_MAX_SIZE:
+        raise HTTPException(status_code=400, detail="File too large (max 10 MB)")
+    owner_id = pet.owner_id or 1
+    storage = get_storage()
+    key = storage.key_for("image", owner_id, file.filename or "profile.jpg")
+    storage.save(key, body, content_type=content_type)
+    url = storage.get_url(key)
+    settings = get_settings()
+    media = MediaFile(
+        owner_id=owner_id,
+        pet_id=pet_id,
+        file_type="image",
+        mime_type=content_type,
+        storage_key=key,
+        storage_backend=settings.storage_backend,
+        file_size_bytes=len(body),
+    )
+    db.add(media)
+    await db.flush()
+    base = get_settings().api_base_url.rstrip("/")
+    profile_picture_url = f"{base}/api/v1/pets/{pet_id}/profile-picture"
+    return {"url": url, "profile_picture_url": profile_picture_url, "media_id": media.id}
 
 
 @router.delete("/{pet_id}", status_code=204)

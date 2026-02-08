@@ -14,6 +14,7 @@ class PetBase(BaseModel):
     breed: Optional[str] = Field(None, max_length=100)
     gender: Optional[str] = Field(None, max_length=20, description="e.g. male, female, unknown")
     date_of_birth: Optional[str] = Field(None, max_length=20, description="YYYY-MM-DD or approximate age string")
+    weight: Optional[float] = Field(None, description="Weight in lbs")
     health_notes: Optional[str] = Field(None, description="Allergies, conditions, vet notes, etc.")
 
 
@@ -31,6 +32,7 @@ class PetUpdate(BaseModel):
     breed: Optional[str] = Field(None, max_length=100)
     gender: Optional[str] = Field(None, max_length=20)
     date_of_birth: Optional[str] = Field(None, max_length=20)
+    weight: Optional[float] = Field(None)
     health_notes: Optional[str] = Field(None)
 
 
@@ -43,3 +45,4 @@ class PetResponse(PetBase):
     owner_id: Optional[int] = None
     created_at: datetime
     updated_at: datetime
+    profile_photo_url: Optional[str] = Field(None, description="URL to pet's profile picture (latest uploaded image)")

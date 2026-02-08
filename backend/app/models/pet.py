@@ -1,6 +1,6 @@
 """Pet model - profile, breed, milestones."""
 
-from sqlalchemy import ForeignKey, String, Text
+from sqlalchemy import Float, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -20,6 +20,7 @@ class Pet(Base, TimestampMixin):
     breed: Mapped[str | None] = mapped_column(String(100), nullable=True)
     gender: Mapped[str | None] = mapped_column(String(20), nullable=True)  # male, female, unknown
     date_of_birth: Mapped[str | None] = mapped_column(String(20), nullable=True)  # or approximate age string
+    weight: Mapped[float | None] = mapped_column(Float, nullable=True)  # weight in lbs
     health_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     owner: Mapped["User | None"] = relationship("User", back_populates="pets")

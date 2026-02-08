@@ -69,7 +69,7 @@ export async function request(method, path, options = {}) {
 }
 
 /** Throws if !ok; returns data. */
-async function requestOk(method, path, options = {}) {
+export async function requestOk(method, path, options = {}) {
   const { data, ok, status } = await request(method, path, options);
   if (!ok) {
     const err = new Error(data?.detail || data?.message || `Request failed: ${status}`);
@@ -120,6 +120,15 @@ export const pets = {
   },
   async get(id) {
     return requestOk("GET", `/pets/${id}`);
+  },
+  async update(id, body) {
+    return requestOk("PATCH", `/pets/${id}`, { body });
+  },
+  /** Upload profile picture for a pet. Returns { url, profile_picture_url, media_id }. */
+  async uploadProfilePicture(petId, file) {
+    const form = new FormData();
+    form.append("file", file);
+    return requestOk("POST", `/pets/${petId}/profile-picture`, { formData: form });
   },
   async getActivityStats(id, days = 7) {
     return requestOk("GET", `/pets/${id}/stats/activity?days=${days}`);

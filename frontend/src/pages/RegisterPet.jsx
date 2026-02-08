@@ -1,24 +1,31 @@
-import React, { useState, useEffect } from 'react';
+import React, { useRef, useState } from 'react';
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { usePet } from '../PetContext';
+import api, { pets as petsApi, requestOk } from '../api/api';
 
 export default function RegisterPet() {
   const navigate = useNavigate();
   const location = useLocation();
   const { pets, setPets, setActivePet } = usePet();
+  const fileInputRef = useRef(null);
 
-  // Check if we are in "Edit Mode"
   const petToEdit = location.state?.petToEdit;
 
-  // State for the form - initialized with petToEdit data if it exists
   const [formData, setFormData] = useState({
     name: petToEdit?.name || '',
-    animal: petToEdit?.type || 'Dog', // mapped to 'type' from your object
+    animal: petToEdit?.type || 'Dog',
     gender: petToEdit?.gender || 'Male',
     breed: petToEdit?.breed || '',
     age: petToEdit?.age || '',
-    medical: petToEdit?.medical || ''
+    weight: petToEdit?.weight ?? '',
+    medical: petToEdit?.medical || '',
   });
+  const [profileFile, setProfileFile] = useState(null);
+  const [profilePreview, setProfilePreview] = useState(
+    petToEdit?.profile_photo_url || (petToEdit?.image?.startsWith?.('http') ? petToEdit.image : null)
+  );
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoError, setPhotoError] = useState('');
 
   const colors = {
     bgGradient: 'linear-gradient(135deg, #E0E7FF 0%, #F3E8FF 100%)',
@@ -29,49 +36,102 @@ export default function RegisterPet() {
     border: '#E2E8F0'
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    
-    const emojis = { Dog: '🐶', Cat: '🐱', Bird: '🦜', Other: '🐾' };
+  const handlePhotoChange = (e) => {
+    const file = e.target.files?.[0];
+    setPhotoError('');
+    if (!file) {
+      setProfileFile(null);
+      setProfilePreview(null);
+      return;
+    }
+    if (!file.type.startsWith('image/')) {
+      setPhotoError('Please choose an image (JPEG, PNG, WebP, or GIF).');
+      return;
+    }
+    setProfileFile(file);
+    setProfilePreview(URL.createObjectURL(file));
+  };
 
-    if (petToEdit) {
-      // EDIT LOGIC: Update the existing pet in the array
-      const updatedPets = pets.map(p => 
-        p.id === petToEdit.id 
-          ? { 
-              ...p, 
-              name: formData.name,
-              type: formData.animal,
-              breed: formData.breed,
-              gender: formData.gender,
-              age: formData.age,
-              medical: formData.medical,
-              image: emojis[formData.animal] || '🐾'
-            } 
-          : p
-      );
-      setPets(updatedPets);
-      // Update active pet to reflect changes immediately
-      setActivePet(updatedPets.find(p => p.id === petToEdit.id));
-    } else {
-      // REGISTER LOGIC: Create a brand new pet
-      const newPet = {
-        id: Date.now(),
-        name: formData.name,
-        type: formData.animal,
-        breed: formData.breed,
-        gender: formData.gender,
-        age: formData.age,
-        medical: formData.medical,
-        image: emojis[formData.animal] || '🐾',
-        stats: {
-          sleepHours: Math.floor(Math.random() * 6) + 8,
-          activityData: Array.from({ length: 7 }, () => Math.floor(Math.random() * 8) + 4)
+  function apiPetToFrontend(apiPet) {
+    const emojis = { Dog: '🐶', Cat: '🐱', Bird: '🦜', Other: '🐾' };
+    const species = apiPet.species || 'Other';
+    return {
+      id: apiPet.id,
+      name: apiPet.name,
+      type: species,
+      breed: apiPet.breed ?? '',
+      gender: apiPet.gender ?? '',
+      age: apiPet.date_of_birth ?? '',
+      weight: apiPet.weight ?? '',
+      medical: apiPet.health_notes ?? '',
+      image: apiPet.profile_photo_url || emojis[species] || '🐾',
+      profile_photo_url: apiPet.profile_photo_url ?? null,
+      stats: apiPet.stats ?? { sleepHours: 8, activityData: [8, 7, 9, 11, 8, 10, 8] },
+    };
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const body = {
+      name: formData.name,
+      species: formData.animal,
+      breed: formData.breed || null,
+      gender: formData.gender || null,
+      date_of_birth: formData.age || null,
+      health_notes: formData.medical || null,
+      weight: formData.weight ? parseFloat(formData.weight) : null,
+    };
+
+    if (petToEdit?.id) {
+      try {
+        const updated = await requestOk('PATCH', `/pets/${petToEdit.id}`, { body });
+        const frontendPet = apiPetToFrontend(updated);
+        setPets(prev => prev.map(p => p.id === petToEdit.id ? { ...p, ...frontendPet } : p));
+        setActivePet(prev => (prev?.id === petToEdit.id ? { ...prev, ...frontendPet } : prev));
+
+        if (profileFile) {
+          setPhotoUploading(true);
+          setPhotoError('');
+          try {
+            const data = await petsApi.uploadProfilePicture(petToEdit.id, profileFile);
+            const url = data.profile_picture_url || data.url;
+            if (url) {
+              setPets(prev => prev.map(p => p.id === petToEdit.id ? { ...p, image: url, profile_photo_url: url } : p));
+              setActivePet(prev => (prev?.id === petToEdit.id ? { ...prev, image: url, profile_photo_url: url } : prev));
+            }
+          } catch (err) {
+            setPhotoError(err.message || err.detail || 'Photo upload failed.');
+            setPhotoUploading(false);
+            return;
+          }
+          setPhotoUploading(false);
         }
-      };
-      const updatedPets = [...pets, newPet];
-      setPets(updatedPets);
-      setActivePet(newPet);
+      } catch (err) {
+        setPhotoError(err.message || err.detail || 'Save failed.');
+        return;
+      }
+    } else {
+      try {
+        const created = await petsApi.create(body);
+        const frontendPet = apiPetToFrontend(created);
+        setPets(prev => [...prev, frontendPet]);
+        setActivePet(frontendPet);
+        if (profileFile && created.id) {
+          setPhotoUploading(true);
+          try {
+            const data = await petsApi.uploadProfilePicture(created.id, profileFile);
+            const url = data.profile_picture_url || data.url;
+            if (url) {
+              setPets(prev => prev.map(p => p.id === created.id ? { ...p, image: url, profile_photo_url: url } : p));
+              setActivePet(prev => (prev?.id === created.id ? { ...prev, image: url, profile_photo_url: url } : prev));
+            }
+          } catch (_) {}
+          setPhotoUploading(false);
+        }
+      } catch (err) {
+        setPhotoError(err.message || err.detail || 'Registration failed.');
+        return;
+      }
     }
 
     navigate('/home');
@@ -163,6 +223,13 @@ export default function RegisterPet() {
             </div>
           </div>
 
+          <label style={{ fontSize: '14px', fontWeight: 'bold', color: colors.textMain, marginLeft: '5px' }}>Weight (lbs)</label>
+          <input 
+            type="number" step="0.1" min="0" placeholder="e.g. 25" style={inputStyle} 
+            value={formData.weight}
+            onChange={(e) => setFormData({...formData, weight: e.target.value})}
+          />
+
           <label style={{ fontSize: '14px', fontWeight: 'bold', color: colors.textMain, marginLeft: '5px' }}>Medical History</label>
           <textarea 
             placeholder="List any allergies, past surgeries, or chronic conditions..." 
@@ -171,8 +238,63 @@ export default function RegisterPet() {
             onChange={(e) => setFormData({...formData, medical: e.target.value})}
           />
 
-          <button type="submit" style={buttonStyle}>
-            {petToEdit ? 'Save Changes' : 'Complete Registration'}
+          <label style={{ fontSize: '14px', fontWeight: 'bold', color: colors.textMain, marginLeft: '5px', display: 'block', marginTop: '16px' }}>
+            Profile picture (optional)
+          </label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '8px', marginBottom: '8px' }}>
+                <div
+                  style={{
+                    width: '64px',
+                    height: '64px',
+                    borderRadius: '50%',
+                    backgroundColor: colors.inputBg,
+                    border: `2px dashed ${colors.border}`,
+                    overflow: 'hidden',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                  }}
+                >
+                  {profilePreview ? (
+                    <img src={profilePreview} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <span style={{ fontSize: '24px', color: colors.textMuted }}>🐾</span>
+                  )}
+                </div>
+                <div>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    onChange={handlePhotoChange}
+                    style={{ display: 'none' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    style={{
+                      padding: '8px 14px',
+                      borderRadius: '12px',
+                      background: colors.inputBg,
+                      color: colors.primary,
+                      border: `1px solid ${colors.border}`,
+                      fontWeight: '600',
+                      fontSize: '13px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {profileFile ? 'Change photo' : 'Choose photo'}
+                  </button>
+                  {profileFile && (
+                    <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: colors.textMuted }}>{profileFile.name}</p>
+                  )}
+                </div>
+              </div>
+          {photoError && <p style={{ margin: 0, fontSize: '13px', color: '#EF4444' }}>{photoError}</p>}
+
+          <button type="submit" style={buttonStyle} disabled={photoUploading}>
+            {photoUploading ? 'Saving…' : petToEdit ? 'Save Changes' : 'Complete Registration'}
           </button>
         </form>
 

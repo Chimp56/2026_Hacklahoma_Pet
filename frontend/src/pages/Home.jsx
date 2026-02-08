@@ -1,17 +1,44 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from "react-router-dom";
 import { usePet } from '../PetContext';
-import api from '../api/api';
+import api, { pets as petsApi } from '../api/api';
+import PetAvatar from '../components/PetAvatar';
 
 const LIVE_MONITOR_CHANNEL = 'speedingchimp';
 
 export default function Home({ events = [], petStats = {} }) {
-  const { pets, activePet, setActivePet } = usePet();
+  const { pets, setPets, activePet, setActivePet } = usePet();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [streamRefreshKey, setStreamRefreshKey] = useState(0);
   const [streamFrameError, setStreamFrameError] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(true); // Added: Sidebar state
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoError, setPhotoError] = useState('');
+  const fileInputRef = useRef(null);
   const navigate = useNavigate();
+
+  const profilePhotoUrl = activePet?.profile_photo_url || (typeof activePet?.image === 'string' && activePet.image.startsWith('http') ? activePet.image : null);
+
+  const handleProfilePhotoChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !activePet?.id) return;
+    if (!file.type.startsWith('image/')) {
+      setPhotoError('Please choose an image (JPEG, PNG, WebP, or GIF).');
+      return;
+    }
+    setPhotoError('');
+    setPhotoUploading(true);
+    petsApi.uploadProfilePicture(activePet.id, file)
+      .then((data) => {
+        const url = data.profile_picture_url || data.url;
+        if (url) {
+          setPets(prev => prev.map(p => p.id === activePet.id ? { ...p, image: url, profile_photo_url: url } : p));
+          setActivePet(prev => prev?.id === activePet.id ? { ...prev, image: url, profile_photo_url: url } : prev);
+        }
+      })
+      .catch((err) => setPhotoError(err.message || err.detail || 'Upload failed.'))
+      .finally(() => { setPhotoUploading(false); e.target.value = ''; });
+  };
 
   const navbarHeight = '70px';
   const petName = activePet?.name || "Buddy";
@@ -126,7 +153,7 @@ export default function Home({ events = [], petStats = {} }) {
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
             style={{ display: 'flex', alignItems: 'center', gap: '12px', background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryDark} 100%)`, padding: '12px 16px', borderRadius: '20px', cursor: 'pointer', boxShadow: '0 8px 20px rgba(167, 139, 250, 0.3)', color: 'white', transition: 'all 0.2s ease' }}
           >
-            <span style={{ fontSize: '24px' }}>{activePet?.image || '🐾'}</span>
+            <PetAvatar pet={activePet} size={28} style={{ background: 'rgba(255,255,255,0.2)' }} />
             <span style={{ fontWeight: '800', flex: 1 }}>{activePet?.name}</span>
             <span style={{ fontSize: '10px', transform: isDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.3s ease' }}>▼</span>
           </div>
@@ -139,7 +166,7 @@ export default function Home({ events = [], petStats = {} }) {
                   onClick={() => { setActivePet(pet); setIsDropdownOpen(false); }}
                   style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', borderRadius: '12px', cursor: 'pointer', backgroundColor: activePet?.id === pet.id ? colors.accent : 'transparent', transition: 'background 0.2s ease' }}
                 >
-                  <span style={{ fontSize: '20px' }}>{pet.image}</span>
+                  <PetAvatar pet={pet} size={24} />
                   <span style={{ fontWeight: '700', color: colors.textMain, flex: 1 }}>{pet.name}</span>
                   {activePet?.id === pet.id && <span style={{ color: colors.primary, fontWeight: 'bold' }}>✓</span>}
                 </div>
@@ -168,7 +195,12 @@ export default function Home({ events = [], petStats = {} }) {
       <main style={mainContentStyle}>
         <header style={{ marginBottom: '40px' }}>
           <h1 style={{ margin: 0, color: colors.textMain, fontSize: '36px', fontWeight: '900' }}>
-            Welcome back, <span style={{ color: colors.primary }}>{petName}</span>! {activePet?.image || '🐾'}
+            Welcome back, <span style={{ color: colors.primary }}>{petName}</span>!{' '}
+            {profilePhotoUrl ? (
+              <img src={profilePhotoUrl} alt="" style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', verticalAlign: 'middle' }} />
+            ) : (
+              (activePet?.image && !activePet.image.startsWith?.('http') ? activePet.image : '🐾')
+            )}
           </h1>
           <p style={{ color: colors.textMuted, fontSize: '18px', marginTop: '8px' }}>
             Dashboard Synced: Tracking live sleep for today.
@@ -177,14 +209,49 @@ export default function Home({ events = [], petStats = {} }) {
 
         {/* PET PROFILE SECTION */}
         <div style={{ ...cardStyle, marginBottom: '40px', display: 'flex', alignItems: 'center', gap: '30px', position: 'relative' }}>
-          <div 
-            onClick={() => navigate('/register-pet', { state: { petToEdit: activePet } })}
-            style={{ fontSize: '60px', backgroundColor: colors.accent, padding: '20px', borderRadius: '50%', boxShadow: '0 4px 15px rgba(0,0,0,0.05)', cursor: 'pointer', border: `2px solid transparent`, transition: 'all 0.2s ease', position: 'relative' }}
-            onMouseOver={(e) => e.currentTarget.style.borderColor = colors.primary}
-            onMouseOut={(e) => e.currentTarget.style.borderColor = 'transparent'}
-          >
-            {activePet?.image || '🐾'}
-            <div style={{ position: 'absolute', bottom: '5px', right: '5px', background: colors.white, borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', boxShadow: '0 2px 5px rgba(0,0,0,0.1)', border: `1px solid ${colors.border}` }}>✏️</div>
+          <input
+            type="file"
+            ref={fileInputRef}
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            onChange={handleProfilePhotoChange}
+            style={{ display: 'none' }}
+          />
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+            <div
+              style={{
+                width: '100px',
+                height: '100px',
+                borderRadius: '50%',
+                backgroundColor: colors.accent,
+                boxShadow: '0 4px 15px rgba(0,0,0,0.05)',
+                border: `2px solid transparent`,
+                overflow: 'hidden',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                position: 'relative',
+              }}
+            >
+            {profilePhotoUrl ? (
+              <img src={profilePhotoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+              <span style={{ fontSize: '48px' }}>{activePet?.image || '🐾'}</span>
+            )}
+              <div
+                onClick={() => navigate('/register-pet', { state: { petToEdit: activePet } })}
+                style={{ position: 'absolute', bottom: '2px', right: '2px', background: colors.white, borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', boxShadow: '0 2px 5px rgba(0,0,0,0.1)', border: `1px solid ${colors.border}`, cursor: 'pointer' }}
+                title="Edit profile"
+              >✏️</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={photoUploading || !activePet?.id}
+              style={{ padding: '6px 12px', borderRadius: '10px', background: colors.accent, color: colors.primary, border: 'none', cursor: photoUploading ? 'wait' : 'pointer', fontWeight: '600', fontSize: '12px' }}
+            >
+              {photoUploading ? 'Uploading…' : 'Change photo'}
+            </button>
+            {photoError && <span style={{ fontSize: '12px', color: colors.danger }}>{photoError}</span>}
           </div>
           <div style={{ flex: 1 }}>
             <h2 style={{ margin: '0 0 5px 0', color: colors.textMain, fontWeight: '900' }}>{activePet?.name}'s Profile</h2>
