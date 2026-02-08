@@ -72,41 +72,39 @@ export default function CreateProfile() {
   }
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: colors.bgGradient,
-        fontFamily: "sans-serif",
-      }}
-    >
-      <div
-        style={{
-          width: "100%",
-          maxWidth: "400px",
-          backgroundColor: "#FFFFFF",
-          borderRadius: "40px",
-          padding: "50px 40px",
-          textAlign: "center",
-          boxShadow: "0 20px 40px rgba(0, 0, 0, 0.05)",
-        }}
-      >
-        <div style={{ marginBottom: "35px" }}>
-          <div
-            style={{
-              background: "#F5F3FF",
-              width: "70px",
-              height: "70px",
-              borderRadius: "22px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              margin: "0 auto 20px",
-            }}
-          >
-            <span style={{ fontSize: "35px" }}>🐾</span>
+    <div style={{ 
+      minHeight: '100vh', 
+      width: '100%', 
+      display: 'flex', 
+      alignItems: 'center', 
+      justifyContent: 'center', 
+      background: colors.bgGradient, 
+      fontFamily: 'sans-serif',
+      marginTop: '70px' // 👈 Added marginTop: 70
+    }}>
+      <div style={{ 
+        width: '100%', 
+        maxWidth: '400px', 
+        backgroundColor: '#FFFFFF', 
+        borderRadius: '40px', 
+        padding: '50px 40px', 
+        textAlign: 'center', 
+        boxShadow: '0 20px 40px rgba(0, 0, 0, 0.05)' 
+      }}>
+        
+        {/* Header Section */}
+        <div style={{ marginBottom: '35px' }}>
+          <div style={{ 
+            background: '#F5F3FF', 
+            width: '70px', 
+            height: '70px', 
+            borderRadius: '22px', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            margin: '0 auto 20px' 
+          }}>
+            <span style={{ fontSize: '35px' }}>🐾</span>
           </div>
           <h1 style={{ margin: 0, fontSize: "32px", fontWeight: "900", color: colors.textMain }}>
             Join PetPulse

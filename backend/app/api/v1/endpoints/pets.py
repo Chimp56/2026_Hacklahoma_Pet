@@ -19,7 +19,14 @@ from app.crud.pet import pet_crud
 from app.crud.sleep_log import sleep_log_crud
 from app.models.media_file import MediaFile
 from app.models.user import User
-from app.schemas.habits import EatingLogCreate, EatingLogResponse, SleepLogCreate, SleepLogResponse
+from app.schemas.habits import (
+    ActivityStateLogCreate,
+    ActivityStateLogResponse,
+    EatingLogCreate,
+    EatingLogResponse,
+    SleepLogCreate,
+    SleepLogResponse,
+)
 from app.schemas.pet import PetCreate, PetResponse, PetUpdate
 from app.schemas.stats import ActivityStatsResponse, CalendarDayStats, CalendarEventsResponse, DayActivityStats, UpcomingEventItem
 from app.services.qr_code import generate_qr_png
