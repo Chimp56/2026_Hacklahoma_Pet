@@ -1,3 +1,7 @@
+import React, { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+
+// Assets
 import post1 from "../assets/post1.png";
 import post2 from "../assets/post2.png";
 import post3 from "../assets/post3.png";
@@ -7,8 +11,6 @@ import avatar2 from "../assets/avatar2.png";
 import avatar3 from "../assets/avatar3.png";
 import makePost from "../assets/make-post.png";
 
-
-import { useMemo, useState } from "react";
 import "./Community.css";
 
 const FOLLOWING_IDS = new Set(["u1", "u3"]); // pretend you're following these users
@@ -111,6 +113,15 @@ export default function Community() {
   const [newLocation, setNewLocation] = useState("");
   const [newTags, setNewTags] = useState("");
   const [newImage, setNewImage] = useState(makePost);
+
+  const colors = {
+    bgGradient: 'linear-gradient(135deg, #EEF2FF 0%, #F5F3FF 100%)',
+    sidebarBg: 'rgba(255, 255, 255, 0.95)',
+    primary: '#A78BFA',
+    textMuted: '#64748B',
+    border: '#E2E8F0',
+    danger: '#EF4444'
+  };
 
   const locations = useMemo(() => {
     const uniq = Array.from(new Set(posts.map((p) => p.location))).sort();
@@ -243,292 +254,190 @@ export default function Community() {
   }
 
   return (
-    <div className="comm">
-      <div className="comm__container">
+    <div style={{ display: 'flex', minHeight: '100vh', width: '100vw', background: colors.bgGradient, fontFamily: "'Inter', sans-serif", overflow: 'hidden' }}>
+      
+      {/* SIDEBAR */}
+      <aside style={{ 
+        width: '280px', 
+        height: 'calc(100vh - 70px)', 
+        background: colors.sidebarBg, 
+        backdropFilter: 'blur(15px)', 
+        borderRight: `1px solid ${colors.border}`, 
+        padding: '20px', 
+        position: 'fixed', 
+        left: 0, 
+        top: '70px', 
+        zIndex: 10, 
+        display: 'flex', 
+        flexDirection: 'column', 
+        boxSizing: 'border-box' 
+      }}>
+        <nav style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <Link to="/home" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', textDecoration: 'none', color: colors.textMuted, fontWeight: '600', borderRadius: '12px' }}>🏠 Dashboard</Link>
+          <Link to="/moniter" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', textDecoration: 'none', color: colors.textMuted, fontWeight: '600', borderRadius: '12px' }}>📹 Monitor</Link>
+          <Link to="/stats" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', textDecoration: 'none', color: colors.textMuted, fontWeight: '600', borderRadius: '12px' }}>📊 Stats</Link>
+          <Link to="/calendar" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', textDecoration: 'none', color: colors.textMuted, fontWeight: '600', borderRadius: '12px' }}>📅 Calendar</Link>
+          <Link to="/community" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', textDecoration: 'none', color: colors.primary, background: 'rgba(167, 139, 250, 0.15)', fontWeight: '700', borderRadius: '12px' }}>🤝 Community</Link>
+        </nav>
 
-        {/* Top bar: actions + search + filters */}
-        <div className="comm__top">
+        <div style={{ marginTop: 'auto', borderTop: `1px solid ${colors.border}`, paddingTop: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <Link to="/settings" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', textDecoration: 'none', color: colors.textMuted, fontWeight: '600', borderRadius: '12px' }}>⚙️ Account Settings</Link>
+          <button style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', background: 'none', border: 'none', color: colors.danger, fontWeight: '700', cursor: 'pointer', textAlign: 'left' }}>🚪 Log Out</button>
+        </div>
+      </aside>
 
-          <div className="comm__actionsRow">
-  <button className="comm__actionBtn primary" onClick={openComposer}>
-    + New Post
-  </button>
+      {/* MAIN CONTENT */}
+      <main style={{ flex: 1, marginLeft: '280px', marginTop: '70px', height: 'calc(100vh - 70px)', overflowY: 'auto', boxSizing: 'border-box' }}>
+        <div className="comm">
+          <div className="comm__container">
+            {/* Top bar: actions + search + filters */}
+            <div className="comm__top">
+              <div className="comm__actionsRow">
+                <button className="comm__actionBtn primary" onClick={openComposer}>+ New Post</button>
+                <button className={`comm__actionBtn ${showMine ? "active" : ""}`} onClick={() => setShowMine(true)}>My Posts</button>
+                <button className={`comm__actionBtn ${!showMine ? "active" : ""}`} onClick={() => setShowMine(false)}>All Posts</button>
+              </div>
 
-  <button
-    className={`comm__actionBtn ${showMine ? "active" : ""}`}
-    onClick={() => setShowMine(true)}
-  >
-    My Posts
-  </button>
+              <div className="comm__controls">
+                <div className="comm__seg">
+                  <button className={sortMode === "latest" ? "isActive" : ""} onClick={() => setSortMode("latest")}>Latest</button>
+                  <button className={sortMode === "trending" ? "isActive" : ""} onClick={() => setSortMode("trending")}>Trending</button>
+                  <button className={sortMode === "following" ? "isActive" : ""} onClick={() => setSortMode("following")}>Following</button>
+                </div>
 
-  <button
-    className={`comm__actionBtn ${!showMine ? "active" : ""}`}
-    onClick={() => setShowMine(false)}
-  >
-    All Posts
-  </button>
-</div>
-
-
-          <div className="comm__controls">
-            <div className="comm__seg">
-              <button
-                className={sortMode === "latest" ? "isActive" : ""}
-                onClick={() => setSortMode("latest")}
-              >
-                Latest
-              </button>
-              <button
-                className={sortMode === "trending" ? "isActive" : ""}
-                onClick={() => setSortMode("trending")}
-              >
-                Trending
-              </button>
-              <button
-                className={sortMode === "following" ? "isActive" : ""}
-                onClick={() => setSortMode("following")}
-              >
-                Following
-              </button>
+                <select className="comm__select" value={locationFilter} onChange={(e) => setLocationFilter(e.target.value)}>
+                  {locations.map((loc) => (
+                    <option key={loc} value={loc}>{loc === "All" ? "All locations" : `📍 ${loc}`}</option>
+                  ))}
+                </select>
+              </div>
             </div>
 
-            <select
-              className="comm__select"
-              value={locationFilter}
-              onChange={(e) => setLocationFilter(e.target.value)}
-            >
-              {locations.map((loc) => (
-                <option key={loc} value={loc}>
-                  {loc === "All" ? "All locations" : `📍 ${loc}`}
-                </option>
+            {/* Feed */}
+            <main className="comm__feed">
+              {filtered.map((p) => (
+                <article key={p.id} className="post">
+                  <header className="post__header">
+                    <div className="post__who">
+                      <img className="post__avatar" src={p.avatar} alt="" />
+                      <div className="post__meta">
+                        <div className="post__line1">
+                          <span className="post__user">{p.username}</span>
+                          <span className="post__time">• {timeAgo(p.createdAt)}</span>
+                        </div>
+                        <div className="post__loc">📍 {p.location}</div>
+                      </div>
+                    </div>
+                    <button className="post__menu" title="More">⋯</button>
+                  </header>
+
+                  <div className="post__imageWrap">
+                    <img className="post__image" src={p.image} alt="post" />
+                  </div>
+
+                  <div className="post__body">
+                    <div className="post__actions">
+                      <button className="iconBtn" onClick={() => toggleLike(p.id)}>♥ <span>{p.likes}</span></button>
+                      <button className="iconBtn" onClick={() => openComments(p.id)}>💬 <span>{p.comments.length}</span></button>
+                      <button className="iconBtn" onClick={() => toggleSave(p.id)}>🔖 <span>{p.saves}</span></button>
+                      <button className="iconBtn" onClick={() => navigator.clipboard?.writeText(`post/${p.id}`)} title="Copy link">⤴︎</button>
+                    </div>
+
+                    <p className="post__caption"><span className="post__user">{p.username}</span> {p.caption}</p>
+
+                    <div className="post__tags">
+                      {p.tags.map((t) => (<span key={t} className="tag">{t}</span>))}
+                    </div>
+
+                    <button className="post__viewAll" onClick={() => openComments(p.id)}>View comments</button>
+
+                    <div className="post__addComment">
+                      <input placeholder="Add a comment..." onFocus={() => openComments(p.id)} readOnly />
+                    </div>
+                  </div>
+                </article>
               ))}
-            </select>
+
+              {filtered.length === 0 && (
+                <div className="comm__empty">
+                  <div className="comm__emptyTitle">No results</div>
+                  <div className="comm__emptyText">Try a different username, tag, or location.</div>
+                </div>
+              )}
+            </main>
+
+            {/* Comments Modal */}
+            {activePost && (
+              <div className="modal" onMouseDown={closeComments}>
+                <div className="modal__card" onMouseDown={(e) => e.stopPropagation()}>
+                  <div className="modal__header">
+                    <div className="modal__title">Comments • <span className="muted">{activePost.username}</span></div>
+                    <button className="modal__close" onClick={closeComments}>✕</button>
+                  </div>
+                  <div className="modal__content">
+                    <div className="modal__left"><img className="modal__img" src={activePost.image} alt="post" /></div>
+                    <div className="modal__right">
+                      <div className="modal__thread">
+                        {activePost.comments.map((c) => (
+                          <div key={c.id} className="comment">
+                            <span className="comment__user">{c.user}</span>
+                            <span className="comment__text">{c.text}</span>
+                            <span className="comment__time">{c.time}</span>
+                          </div>
+                        ))}
+                        {activePost.comments.length === 0 && (<div className="muted">No comments yet.</div>)}
+                      </div>
+                      <div className="modal__composer">
+                        <div className="emojiRow">
+                          <button onClick={() => setCommentDraft((d) => d + "😂")}>😂</button>
+                          <button onClick={() => setCommentDraft((d) => d + "❤️")}>❤️</button>
+                          <button onClick={() => setCommentDraft((d) => d + "😭")}>😭</button>
+                          <button onClick={() => setCommentDraft((d) => d + "🐾")}>🐾</button>
+                        </div>
+                        <div className="composeRow">
+                          <input value={commentDraft} onChange={(e) => setCommentDraft(e.target.value)} placeholder="Add a comment…" onKeyDown={(e) => { if (e.key === "Enter") submitComment(); }} />
+                          <button className="sendBtn" onClick={submitComment}>Post</button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Create Post Modal */}
+            {composerOpen && (
+              <div className="modal" onMouseDown={closeComposer}>
+                <div className="modal__card" onMouseDown={(e) => e.stopPropagation()}>
+                  <div className="modal__header">
+                    <div className="modal__title">New Post</div>
+                    <button className="modal__close" onClick={closeComposer}>✕</button>
+                  </div>
+                  <div className="composer">
+                    <div className="composer__preview">
+                      <img className="composer__img" src={newImage} alt="preview" />
+                      <div className="composer__pickRow">
+                        <button className={`pickBtn ${newImage === makePost ? "active" : ""}`} onClick={() => setNewImage(makePost)}>1</button>
+                        <button className={`pickBtn ${newImage === post2 ? "active" : ""}`} onClick={() => setNewImage(post2)}>2</button>
+                        <button className={`pickBtn ${newImage === post3 ? "active" : ""}`} onClick={() => setNewImage(post3)}>3</button>
+                      </div>
+                    </div>
+                    <div className="composer__form">
+                      <label className="field"><span>Caption</span><textarea value={newCaption} onChange={(e) => setNewCaption(e.target.value)} placeholder="Write something..." rows={4} /></label>
+                      <label className="field"><span>Location</span><input value={newLocation} onChange={(e) => setNewLocation(e.target.value)} placeholder="e.g., Texas" /></label>
+                      <label className="field"><span>Tags (comma separated)</span><input value={newTags} onChange={(e) => setNewTags(e.target.value)} placeholder="Dog, Outdoors, Funny" /></label>
+                      <div className="composer__actions">
+                        <button className="comm__actionBtn" onClick={closeComposer}>Cancel</button>
+                        <button className="comm__actionBtn primary" onClick={submitPost}>Post</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
-
-        {/* Feed */}
-        <main className="comm__feed">
-          {filtered.map((p) => (
-            <article key={p.id} className="post">
-              <header className="post__header">
-                <div className="post__who">
-                  <img className="post__avatar" src={p.avatar} alt="" />
-                  <div className="post__meta">
-                    <div className="post__line1">
-                      <span className="post__user">{p.username}</span>
-                      <span className="post__time">• {timeAgo(p.createdAt)}</span>
-                    </div>
-                    <div className="post__loc">📍 {p.location}</div>
-                  </div>
-                </div>
-
-                <button className="post__menu" title="More">⋯</button>
-              </header>
-
-              <div className="post__imageWrap">
-                <img className="post__image" src={p.image} alt="post" />
-              </div>
-
-              <div className="post__body">
-                <div className="post__actions">
-                  <button className="iconBtn" onClick={() => toggleLike(p.id)}>
-                    ♥ <span>{p.likes}</span>
-                  </button>
-                  <button className="iconBtn" onClick={() => openComments(p.id)}>
-                    💬 <span>{p.comments.length}</span>
-                  </button>
-                  <button className="iconBtn" onClick={() => toggleSave(p.id)}>
-                    🔖 <span>{p.saves}</span>
-                  </button>
-                  <button
-                    className="iconBtn"
-                    onClick={() => navigator.clipboard?.writeText(`post/${p.id}`)}
-                    title="Copy link"
-                  >
-                    ⤴︎
-                  </button>
-                </div>
-
-                <p className="post__caption">
-                  <span className="post__user">{p.username}</span>{" "}
-                  {p.caption}
-                </p>
-
-                <div className="post__tags">
-                  {p.tags.map((t) => (
-                    <span key={t} className="tag">{t}</span>
-                  ))}
-                </div>
-
-                <button className="post__viewAll" onClick={() => openComments(p.id)}>
-                  View comments
-                </button>
-
-                <div className="post__addComment">
-                  <input
-                    placeholder="Add a comment..."
-                    value={activePostId === p.id ? commentDraft : ""}
-                    onFocus={() => openComments(p.id)}
-                    readOnly
-                  />
-                </div>
-              </div>
-            </article>
-          ))}
-
-          {filtered.length === 0 && (
-            <div className="comm__empty">
-              <div className="comm__emptyTitle">No results</div>
-              <div className="comm__emptyText">
-                Try a different username, tag, or location.
-              </div>
-            </div>
-          )}
-        </main>
-
-        {/* Comments Modal */}
-        {activePost && (
-          <div className="modal" onMouseDown={closeComments}>
-            <div className="modal__card" onMouseDown={(e) => e.stopPropagation()}>
-              <div className="modal__header">
-                <div className="modal__title">
-                  Comments • <span className="muted">{activePost.username}</span>
-                </div>
-                <button className="modal__close" onClick={closeComments}>✕</button>
-              </div>
-
-              <div className="modal__content">
-                <div className="modal__left">
-                  <img className="modal__img" src={activePost.image} alt="post" />
-                </div>
-
-                <div className="modal__right">
-                  <div className="modal__thread">
-                    {activePost.comments.map((c) => (
-                      <div key={c.id} className="comment">
-                        <span className="comment__user">{c.user}</span>
-                        <span className="comment__text">{c.text}</span>
-                        <span className="comment__time">{c.time}</span>
-                      </div>
-                    ))}
-                    {activePost.comments.length === 0 && (
-                      <div className="muted">No comments yet.</div>
-                    )}
-                  </div>
-
-                  <div className="modal__composer">
-                    <div className="emojiRow">
-                      <button onClick={() => setCommentDraft((d) => d + "😂")}>😂</button>
-                      <button onClick={() => setCommentDraft((d) => d + "❤️")}>❤️</button>
-                      <button onClick={() => setCommentDraft((d) => d + "😭")}>😭</button>
-                      <button onClick={() => setCommentDraft((d) => d + "🐾")}>🐾</button>
-                    </div>
-
-                    <div className="composeRow">
-                      <input
-                        value={commentDraft}
-                        onChange={(e) => setCommentDraft(e.target.value)}
-                        placeholder="Add a comment…"
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") submitComment();
-                        }}
-                      />
-                      <button className="sendBtn" onClick={submitComment}>
-                        Post
-                      </button>
-                    </div>
-
-                    <div className="muted tiny">
-                      Tip: search by location like “Oklahoma” or tag like “Dog”.
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Create Post Modal */}
-        {composerOpen && (
-          <div className="modal" onMouseDown={closeComposer}>
-            <div className="modal__card" onMouseDown={(e) => e.stopPropagation()}>
-              <div className="modal__header">
-                <div className="modal__title">New Post</div>
-                <button className="modal__close" onClick={closeComposer}>✕</button>
-              </div>
-
-              <div className="composer">
-                <div className="composer__preview">
-                  <img className="composer__img" src={newImage} alt="preview" />
-
-                  <div className="composer__pickRow">
-                    <button
-                      className={`pickBtn ${newImage === makePost ? "active" : ""}`}
-                      onClick={() => setNewImage(makePost)}
-                    >
-                      1
-                    </button>
-                    <button
-                      className={`pickBtn ${newImage === post2 ? "active" : ""}`}
-                      onClick={() => setNewImage(post2)}
-                    >
-                      2
-                    </button>
-                    <button
-                      className={`pickBtn ${newImage === post3 ? "active" : ""}`}
-                      onClick={() => setNewImage(post3)}
-                    >
-                      3
-                    </button>
-                  </div>
-                </div>
-
-                <div className="composer__form">
-                  <label className="field">
-                    <span>Caption</span>
-                    <textarea
-                      value={newCaption}
-                      onChange={(e) => setNewCaption(e.target.value)}
-                      placeholder="Write something..."
-                      rows={4}
-                    />
-                  </label>
-
-                  <label className="field">
-                    <span>Location</span>
-                    <input
-                      value={newLocation}
-                      onChange={(e) => setNewLocation(e.target.value)}
-                      placeholder="e.g., Texas"
-                    />
-                  </label>
-
-                  <label className="field">
-                    <span>Tags (comma separated)</span>
-                    <input
-                      value={newTags}
-                      onChange={(e) => setNewTags(e.target.value)}
-                      placeholder="Dog, Outdoors, Funny"
-                    />
-                  </label>
-
-                  <div className="composer__actions">
-                    <button className="comm__actionBtn" onClick={closeComposer}>
-                      Cancel
-                    </button>
-                    <button className="comm__actionBtn primary" onClick={submitPost}>
-                      Post
-                    </button>
-                  </div>
-
-                  
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-      </div>
+      </main>
     </div>
   );
 }
