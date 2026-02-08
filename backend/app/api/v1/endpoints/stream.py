@@ -1,17 +1,29 @@
-"""Stream endpoints - Twitch stream URL and current frame as JPEG."""
+"""Stream endpoints - Twitch stream URL, current frame as JPEG, and HLS proxy for browser playback."""
 
 import asyncio
+import base64
+import time
 from typing import Any
+from urllib.parse import urljoin
 
 import cv2
+import httpx
 import streamlink
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import Response
 
 router = APIRouter(prefix="/stream", tags=["stream"])
 
+# User-Agent used when fetching from Twitch (server-side requests are allowed)
+TWITCH_UA = "Mozilla/5.0 (Windows NT 10.0; rv:109.0) Gecko/20100101 Firefox/115.0"
+
 DEFAULT_CHANNEL = "speedingchimp"
 TWITCH_BASE = "https://www.twitch.tv"
+
+# Cache latest frame per channel for preview (avoid re-capturing on every request)
+_FRAME_CACHE: dict[str, tuple[bytes, float]] = {}
+_FRAME_CACHE_TTL_SEC = 15.0
+_capture_lock = asyncio.Lock()
 
 
 def _capture_frame_cv2(stream_url: str, timeout_sec: float = 15.0) -> bytes:
@@ -82,9 +94,17 @@ async def get_current_frame(
     channel: str = Query(DEFAULT_CHANNEL, description="Twitch channel name or full twitch.tv URL"),
 ) -> Response:
     """
-    Capture the current frame from the live stream and return it as JPEG.
-    Uses OpenCV (cv2) to open the stream and read one frame. May take a few seconds.
+    Return the latest cached frame from the live stream as JPEG, or capture a new one.
+    Cached for _FRAME_CACHE_TTL_SEC so preview (e.g. Home dashboard) is fast and does not
+    trigger a new capture on every request.
     """
+    now = time.monotonic()
+    cached = _FRAME_CACHE.get(channel)
+    if cached is not None:
+        jpeg_bytes, cached_at = cached
+        if now - cached_at < _FRAME_CACHE_TTL_SEC:
+            return Response(content=jpeg_bytes, media_type="image/jpeg")
+
     try:
         stream_url = await asyncio.to_thread(_resolve_stream_url, channel)
     except (streamlink.exceptions.NoPluginError, streamlink.exceptions.PluginError) as e:
@@ -92,17 +112,93 @@ async def get_current_frame(
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
 
-    try:
-        jpeg_bytes = await asyncio.wait_for(
-            asyncio.to_thread(_capture_frame_cv2, stream_url, 15.0),
-            timeout=20.0,
-        )
-    except asyncio.TimeoutError:
-        raise HTTPException(
-            status_code=504,
-            detail="Timeout capturing frame from stream. Stream may be offline or slow.",
-        ) from None
-    except ValueError as e:
-        raise HTTPException(status_code=502, detail=str(e)) from e
+    async with _capture_lock:
+        # Re-check cache after acquiring lock (another task may have filled it)
+        cached = _FRAME_CACHE.get(channel)
+        if cached is not None and (now - cached[1]) < _FRAME_CACHE_TTL_SEC:
+            return Response(content=cached[0], media_type="image/jpeg")
+        try:
+            jpeg_bytes = await asyncio.wait_for(
+                asyncio.to_thread(_capture_frame_cv2, stream_url, 15.0),
+                timeout=20.0,
+            )
+        except asyncio.TimeoutError:
+            raise HTTPException(
+                status_code=504,
+                detail="Timeout capturing frame from stream. Stream may be offline or slow.",
+            ) from None
+        except ValueError as e:
+            raise HTTPException(status_code=502, detail=str(e)) from e
+        _FRAME_CACHE[channel] = (jpeg_bytes, time.monotonic())
 
     return Response(content=jpeg_bytes, media_type="image/jpeg")
+
+
+def _rewrite_m3u8(content: str, base_url: str, proxy_base: str, channel: str) -> str:
+    """Rewrite m3u8 playlist so all URLs go through our proxy (avoids browser 403 from Twitch)."""
+    lines = []
+    for line in content.splitlines():
+        line = line.rstrip("\r\n")
+        if not line or line.startswith("#"):
+            lines.append(line)
+            continue
+        absolute = urljoin(base_url, line)
+        encoded = base64.urlsafe_b64encode(absolute.encode()).decode().rstrip("=")
+        proxy_url = f"{proxy_base}?channel={channel}&url={encoded}"
+        lines.append(proxy_url)
+    return "\n".join(lines) + "\n"
+
+
+@router.get("/proxy", response_class=Response)
+async def proxy_hls(
+    request: Request,
+    channel: str = Query(DEFAULT_CHANNEL, description="Twitch channel name"),
+    url: str | None = Query(None, description="Base64url-encoded absolute URL (for segments/sub-playlists)"),
+) -> Response:
+    """
+    Proxy HLS stream so the browser can play it. Twitch returns 403 when the browser
+    requests the stream URL directly. This endpoint fetches playlists/segments server-side
+    and returns them, rewriting playlist URLs to go through this proxy.
+    """
+    proxy_base = str(request.base_url).rstrip("/") + "/api/v1/stream/proxy"
+
+    if url:
+        try:
+            pad = (4 - len(url) % 4) % 4
+            target = base64.urlsafe_b64decode(url + "=" * pad).decode()
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid url parameter") from None
+        async with httpx.AsyncClient(
+            follow_redirects=True,
+            headers={"User-Agent": TWITCH_UA},
+            timeout=20.0,
+        ) as client:
+            resp = await client.get(target)
+            resp.raise_for_status()
+            body = resp.content
+            ct = resp.headers.get("content-type", "")
+        if "mpegurl" in ct or "m3u8" in ct or target.endswith(".m3u8"):
+            base_url = target.rsplit("/", 1)[0] + "/"
+            body = _rewrite_m3u8(body.decode("utf-8", errors="replace"), base_url, proxy_base, channel).encode()
+            ct = "application/vnd.apple.mpegurl"
+        return Response(content=body, media_type=ct or "application/octet-stream")
+
+    # No url: return root playlist (resolve stream and fetch m3u8)
+    try:
+        stream_url = await asyncio.to_thread(_resolve_stream_url, channel)
+    except (streamlink.exceptions.NoPluginError, streamlink.exceptions.PluginError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+
+    base_url = stream_url.rsplit("/", 1)[0] + "/"
+    async with httpx.AsyncClient(
+        follow_redirects=True,
+        headers={"User-Agent": TWITCH_UA},
+        timeout=15.0,
+    ) as client:
+        resp = await client.get(stream_url)
+        resp.raise_for_status()
+        content = resp.text
+    rewritten = _rewrite_m3u8(content, base_url, proxy_base, channel)
+    return Response(content=rewritten.encode(), media_type="application/vnd.apple.mpegurl")

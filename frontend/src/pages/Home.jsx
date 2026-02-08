@@ -1,9 +1,80 @@
-import React from 'react';
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import api from "../api/api";
+import {
+  MOCK_PETS,
+  MOCK_UPCOMING_EVENTS,
+  MOCK_POSTS_LIST,
+  MOCK_ACTIVITY_HEIGHTS,
+} from "../data/mockData";
 
 export default function Home() {
-  const navbarHeight = '70px'; 
-  const petName = "Buddy"; 
+  const navbarHeight = "70px";
+  const { user, token } = useAuth();
+  const [pets, setPets] = useState([]);
+  const [upcomingEvents, setUpcomingEvents] = useState([]);
+  const [activityStats, setActivityStats] = useState(null);
+  const [latestPost, setLatestPost] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [streamRefreshKey, setStreamRefreshKey] = useState(0);
+  const [streamFrameError, setStreamFrameError] = useState(false);
+
+  const petName = pets[0]?.name || user?.name || "there";
+
+  /** Live monitor thumbnail from backend stream current-frame (refreshed periodically) */
+  const streamFrameUrl = `${api.getBaseUrl()}/stream/current-frame?channel=speedingchimp&_=${streamRefreshKey}`;
+
+  /** Bar heights for activity chart: from API (days with sleep_minutes) or mock */
+  const activityHeights =
+    activityStats?.days?.length > 0
+      ? activityStats.days.map((d) => Math.min(100, Number(d.sleep_minutes ?? 0)))
+      : MOCK_ACTIVITY_HEIGHTS;
+
+  useEffect(() => {
+    let cancelled = false;
+    const useMock = token === "mock";
+
+    async function load() {
+      try {
+        if (useMock) {
+          setPets(MOCK_PETS);
+          setUpcomingEvents(MOCK_UPCOMING_EVENTS.events ?? []);
+          setLatestPost(MOCK_POSTS_LIST[0] ?? null);
+          setActivityStats(null);
+          if (!cancelled) setLoading(false);
+          return;
+        }
+        const [petsRes, eventsRes, postsRes] = await Promise.all([
+          api.users.getMyPets(),
+          api.users.getUpcomingEvents(5),
+          api.community.getPosts(0, 1),
+        ]);
+        if (cancelled) return;
+        setPets(Array.isArray(petsRes) ? petsRes : []);
+        setUpcomingEvents(eventsRes?.events ?? []);
+        const posts = Array.isArray(postsRes) ? postsRes : [];
+        setLatestPost(posts[0] ?? null);
+        if (petsRes?.length && petsRes[0]?.id) {
+          const stats = await api.pets.getActivityStats(petsRes[0].id, 7);
+          if (!cancelled) setActivityStats(stats);
+        }
+      } catch (e) {
+        if (!cancelled) setError(e.message || "Failed to load dashboard.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [token]);
+
+  /** Refresh live monitor thumbnail every 15s */
+  useEffect(() => {
+    const interval = setInterval(() => setStreamRefreshKey((k) => k + 1), 15000);
+    return () => clearInterval(interval);
+  }, []);
 
   const colors = {
     bgGradient: 'linear-gradient(135deg, #EEF2FF 0%, #F5F3FF 100%)',
@@ -109,17 +180,16 @@ export default function Home() {
 
       {/* --- MAIN CONTENT --- */}
       <main style={mainContentStyle}>
-        <header style={{ marginBottom: '40px' }}>
-          <h1 style={{ margin: 0, color: colors.textMain, fontSize: '36px', fontWeight: '900' }}>
+        <header style={{ marginBottom: "40px" }}>
+          <h1 style={{ margin: 0, color: colors.textMain, fontSize: "36px", fontWeight: "900" }}>
             Welcome back, <span style={{ color: colors.primary }}>{petName}</span>! 🐾
           </h1>
-          <p style={{ color: colors.textMuted, fontSize: '18px', marginTop: '8px' }}>
-            Here is what's happening in your world today.
+          <p style={{ color: colors.textMuted, fontSize: "18px", marginTop: "8px" }}>
+            Here is what&apos;s happening in your world today.
           </p>
         </header>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '25px', paddingBottom: '40px' }}>
-          
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(350px, 1fr))", gap: "25px", paddingBottom: "40px" }}>
           {/* LIVE MONITOR PREVIEW */}
           <div style={cardStyle}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px' }}>
@@ -129,43 +199,83 @@ export default function Home() {
                 <span style={{ color: colors.live, fontSize: '12px', fontWeight: 'bold' }}>LIVE</span>
               </div>
             </div>
-            <div style={{ width: '100%', height: '200px', backgroundColor: '#F1F5F9', borderRadius: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px dashed #E2E8F0' }}>
-              <Link to="/moniter" style={{ color: colors.primary, textDecoration: 'none', fontWeight: 'bold' }}>Open Camera Feed →</Link>
+            <div style={{ width: '100%', height: '200px', backgroundColor: '#F1F5F9', borderRadius: '20px', overflow: 'hidden', position: 'relative', border: '2px solid #E2E8F0' }}>
+              {streamFrameError ? (
+                <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                  <span style={{ color: colors.textMuted, fontSize: '14px' }}>Stream unavailable</span>
+                  <Link to="/moniter" style={{ color: colors.primary, textDecoration: 'none', fontWeight: 'bold' }}>Open Camera Feed →</Link>
+                </div>
+              ) : (
+                <>
+                  <img
+                    src={streamFrameUrl}
+                    alt="Live stream preview"
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                    onError={() => setStreamFrameError(true)}
+                    onLoad={() => setStreamFrameError(false)}
+                  />
+                  <Link
+                    to="/moniter"
+                    style={{
+                      position: 'absolute',
+                      bottom: '12px',
+                      right: '12px',
+                      padding: '8px 14px',
+                      background: 'rgba(0,0,0,0.6)',
+                      color: 'white',
+                      borderRadius: '10px',
+                      fontSize: '13px',
+                      fontWeight: '600',
+                      textDecoration: 'none',
+                    }}
+                  >
+                    Open full feed →
+                  </Link>
+                </>
+              )}
             </div>
           </div>
 
           {/* ACTIVITY STATS PREVIEW */}
           <div style={cardStyle}>
-            <h3 style={{ margin: '0 0 20px 0' }}>Activity Stats</h3>
-            <div style={{ display: 'flex', alignItems: 'flex-end', gap: '12px', height: '140px', paddingBottom: '10px' }}>
-              {[50, 80, 40, 95, 70, 60, 85].map((h, i) => (
-                <div key={i} style={{ flex: 1, backgroundColor: colors.primary, height: `${h}%`, borderRadius: '8px', opacity: 0.8 }}></div>
+            <h3 style={{ margin: "0 0 20px 0" }}>Activity Stats</h3>
+            <div style={{ display: "flex", alignItems: "flex-end", gap: "12px", height: "140px", paddingBottom: "10px" }}>
+              {activityHeights.map((h, i) => (
+                <div key={i} style={{ flex: 1, backgroundColor: colors.primary, height: `${h}%`, borderRadius: "8px", opacity: 0.8 }}></div>
               ))}
             </div>
           </div>
 
           {/* CALENDAR PREVIEW */}
           <div style={cardStyle}>
-            <h3 style={{ margin: '0 0 20px 0' }}>Upcoming Events</h3>
-            <div style={{ display: 'flex', gap: '20px', alignItems: 'center', backgroundColor: colors.accent, padding: '15px', borderRadius: '20px' }}>
-              <div style={{ backgroundColor: colors.primary, color: 'white', padding: '10px', borderRadius: '15px', textAlign: 'center', minWidth: '50px' }}>
-                <div style={{ fontSize: '12px', fontWeight: 'bold' }}>OCT</div>
-                <div style={{ fontSize: '22px', fontWeight: '900' }}>24</div>
+            <h3 style={{ margin: "0 0 20px 0" }}>Upcoming Events</h3>
+            {upcomingEvents[0] ? (
+              <div style={{ display: "flex", gap: "20px", alignItems: "center", backgroundColor: colors.accent, padding: "15px", borderRadius: "20px" }}>
+                <div style={{ backgroundColor: colors.primary, color: "white", padding: "10px", borderRadius: "15px", textAlign: "center", minWidth: "50px" }}>
+                  <div style={{ fontSize: "12px", fontWeight: "bold" }}>OCT</div>
+                  <div style={{ fontSize: "22px", fontWeight: "900" }}>24</div>
+                </div>
+                <Link to="/calendar" style={{ textDecoration: "none", color: colors.textMain, fontWeight: "800" }}>{upcomingEvents[0].title || "Vet Checkup"}</Link>
               </div>
-              <Link to="/calendar" style={{ textDecoration: 'none', color: colors.textMain, fontWeight: '800' }}>Vet Checkup</Link>
-            </div>
+            ) : (
+              <p style={{ margin: 0, color: colors.textMuted }}>No upcoming events</p>
+            )}
           </div>
 
           {/* COMMUNITY PREVIEW */}
           <div style={cardStyle}>
-            <h3 style={{ margin: '0 0 20px 0' }}>Community Buzz</h3>
-            <Link to="/community" style={{ display: 'flex', gap: '12px', alignItems: 'center', textDecoration: 'none' }}>
-              <div style={{ width: '45px', height: '45px', borderRadius: '50%', background: 'linear-gradient(135deg, #A78BFA, #F3E8FF)' }}></div>
-              <div>
-                <p style={{ margin: 0, fontSize: '14px', color: colors.textMain }}><b>Luna's Mom:</b> New dog park opened!</p>
-                <p style={{ margin: 0, fontSize: '12px', color: colors.textMuted }}>2 mins ago</p>
-              </div>
-            </Link>
+            <h3 style={{ margin: "0 0 20px 0" }}>Community Buzz</h3>
+            {latestPost ? (
+              <Link to="/community" style={{ display: "flex", gap: "12px", alignItems: "center", textDecoration: "none" }}>
+                <div style={{ width: "45px", height: "45px", borderRadius: "50%", background: "linear-gradient(135deg, #A78BFA, #F3E8FF)" }}></div>
+                <div>
+                  <p style={{ margin: 0, fontSize: "14px", color: colors.textMain }}><b>{latestPost.user_name}:</b> {latestPost.title}</p>
+                  <p style={{ margin: 0, fontSize: "12px", color: colors.textMuted }}>{latestPost.created_at}</p>
+                </div>
+              </Link>
+            ) : (
+              <p style={{ margin: 0, color: colors.textMuted }}>No posts yet</p>
+            )}
           </div>
 
         </div>

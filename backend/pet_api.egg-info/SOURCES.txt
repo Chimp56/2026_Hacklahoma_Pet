@@ -7,6 +7,8 @@ app/api/__init__.py
 app/api/v1/__init__.py
 app/api/v1/router.py
 app/api/v1/endpoints/__init__.py
+app/api/v1/endpoints/auth.py
+app/api/v1/endpoints/community.py
 app/api/v1/endpoints/gemini.py
 app/api/v1/endpoints/media.py
 app/api/v1/endpoints/notifications.py
@@ -18,6 +20,7 @@ app/core/__init__.py
 app/core/dependencies.py
 app/core/security.py
 app/crud/__init__.py
+app/crud/community_post.py
 app/crud/eating_log.py
 app/crud/pet.py
 app/crud/sleep_log.py
@@ -40,10 +43,13 @@ app/models/user_pet.py
 app/models/vet.py
 app/models/vet_visit.py
 app/schemas/__init__.py
+app/schemas/auth.py
+app/schemas/community.py
 app/schemas/gemini.py
 app/schemas/habits.py
 app/schemas/medical_record.py
 app/schemas/pet.py
+app/schemas/stats.py
 app/schemas/user.py
 app/schemas/vet.py
 app/schemas/vet_visit.py

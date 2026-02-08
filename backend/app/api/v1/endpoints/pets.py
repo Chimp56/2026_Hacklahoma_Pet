@@ -1,12 +1,15 @@
 """Pets API endpoints."""
 
-from datetime import datetime
+from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
 import httpx
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 from fastapi.responses import Response
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
+
+from app.models.vet_visit import VetVisit
 
 from app.config import get_settings
 from app.core.dependencies import DbSession
@@ -17,6 +20,7 @@ from app.models.media_file import MediaFile
 from app.models.user import User
 from app.schemas.habits import EatingLogCreate, EatingLogResponse, SleepLogCreate, SleepLogResponse
 from app.schemas.pet import PetCreate, PetResponse, PetUpdate
+from app.schemas.stats import ActivityStatsResponse, CalendarDayStats, CalendarEventsResponse, DayActivityStats, UpcomingEventItem
 from app.services.qr_code import generate_qr_png
 from app.services.storage import get_storage
 
@@ -175,6 +179,106 @@ async def get_pet_qr_code(db: DbSession, pet_id: int) -> Response:
             pass
     png_bytes = generate_qr_png(profile_url, logo_bytes=logo_bytes)
     return Response(content=png_bytes, media_type="image/png")
+
+
+# --- Stats / dashboard ---
+
+
+@router.get("/{pet_id}/stats/activity", response_model=ActivityStatsResponse)
+async def get_activity_stats(
+    db: DbSession,
+    pet_id: int,
+    days: int = Query(7, ge=1, le=90, description="Number of days to include"),
+) -> ActivityStatsResponse:
+    """Activity stats per day (sleep minutes, meals count) for the last N days. For dashboard charts."""
+    pet = await pet_crud.get(db, id=pet_id)
+    if not pet:
+        raise HTTPException(status_code=404, detail="Pet not found")
+    tz = timezone.utc
+    today = date.today()
+    since_dt = datetime(today.year, today.month, today.day, tzinfo=tz) - timedelta(days=days)
+    until_dt = datetime(today.year, today.month, today.day, 23, 59, 59, 999999, tzinfo=tz)
+    sleep_logs = await sleep_log_crud.get_multi(db, pet_id=pet_id, since=since_dt, until=until_dt, limit=500)
+    eating_logs = await eating_log_crud.get_multi(db, pet_id=pet_id, since=since_dt, until=until_dt, limit=500)
+    by_date: dict[date, tuple[int, int]] = {}
+    for d in (today - timedelta(days=i) for i in range(days)):
+        by_date[d] = (0, 0)
+    for log in sleep_logs:
+        d = log.started_at.date() if hasattr(log.started_at, "date") else log.started_at
+        if d in by_date:
+            mins = log.duration_minutes or 0
+            by_date[d] = (by_date[d][0] + mins, by_date[d][1])
+    for log in eating_logs:
+        d = log.occurred_at.date() if hasattr(log.occurred_at, "date") else log.occurred_at
+        if d in by_date:
+            by_date[d] = (by_date[d][0], by_date[d][1] + 1)
+    day_list = [DayActivityStats(day=d, sleep_minutes=by_date[d][0], meals_count=by_date[d][1]) for d in sorted(by_date, reverse=True)]
+    return ActivityStatsResponse(pet_id=pet_id, days=day_list)
+
+
+# --- Calendar ---
+
+
+@router.get("/{pet_id}/calendar/events", response_model=CalendarEventsResponse)
+async def get_calendar_events(
+    db: DbSession,
+    pet_id: int,
+    start: date = Query(..., description="Start date (YYYY-MM-DD)"),
+    end: date = Query(..., description="End date (YYYY-MM-DD)"),
+    include_activity: bool = Query(True, description="Include daily sleep/meals stats"),
+) -> CalendarEventsResponse:
+    """Vet visits and optional daily activity for this pet in the given date range."""
+    pet = await pet_crud.get(db, id=pet_id)
+    if not pet:
+        raise HTTPException(status_code=404, detail="Pet not found")
+    if start > end:
+        raise HTTPException(status_code=400, detail="start must be <= end")
+    # Vet visits in range
+    result = await db.execute(
+        select(VetVisit)
+        .options(selectinload(VetVisit.pet), selectinload(VetVisit.vet))
+        .where(VetVisit.pet_id == pet_id, VetVisit.visit_date >= start, VetVisit.visit_date <= end)
+        .order_by(VetVisit.visit_date.asc())
+    )
+    visits = list(result.scalars().unique().all())
+    vet_visits = [
+        UpcomingEventItem(
+            visit_id=v.id,
+            pet_id=v.pet_id,
+            pet_name=v.pet.name,
+            visit_date=v.visit_date,
+            visit_reason=v.visit_reason,
+            vet_name=v.vet.name if v.vet else None,
+            vet_clinic=v.vet.clinic_name if v.vet else None,
+        )
+        for v in visits
+    ]
+    daily_stats: list[CalendarDayStats] = []
+    if include_activity:
+        tz = timezone.utc
+        since_dt = datetime(start.year, start.month, start.day, tzinfo=tz)
+        until_dt = datetime(end.year, end.month, end.day, 23, 59, 59, 999999, tzinfo=tz)
+        sleep_logs = await sleep_log_crud.get_multi(db, pet_id=pet_id, since=since_dt, until=until_dt, limit=2000)
+        eating_logs = await eating_log_crud.get_multi(db, pet_id=pet_id, since=since_dt, until=until_dt, limit=2000)
+        by_date: dict[date, tuple[int, int]] = {}
+        d = start
+        while d <= end:
+            by_date[d] = (0, 0)
+            d += timedelta(days=1)
+        for log in sleep_logs:
+            d = log.started_at.date() if hasattr(log.started_at, "date") else log.started_at
+            if d in by_date:
+                mins = log.duration_minutes or 0
+                by_date[d] = (by_date[d][0] + mins, by_date[d][1])
+        for log in eating_logs:
+            d = log.occurred_at.date() if hasattr(log.occurred_at, "date") else log.occurred_at
+            if d in by_date:
+                by_date[d] = (by_date[d][0], by_date[d][1] + 1)
+        daily_stats = [
+            CalendarDayStats(pet_id=pet_id, day=d, sleep_minutes=by_date[d][0], meals_count=by_date[d][1])
+            for d in sorted(by_date)
+        ]
+    return CalendarEventsResponse(vet_visits=vet_visits, daily_stats=daily_stats)
 
 
 # --- Sleep habits ---

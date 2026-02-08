@@ -35,3 +35,41 @@ class PetAnalysisResponse(BaseModel):
         default_factory=list,
         description="Breed predictions with percentages when applicable (e.g. Golden Retriever 80%)",
     )
+
+
+class ActivityAnalysisResponse(BaseModel):
+    """Response from monitor/camera image analysis (inferred activity)."""
+
+    sleep_minutes: int = Field(0, ge=0, description="Estimated sleep/rest minutes")
+    meals_count: int = Field(0, ge=0, description="Estimated number of meals")
+    activity: str = Field(
+        default="Unknown",
+        description="Activity level: Low, Normal, High, or Unknown",
+    )
+
+
+class AudioAnalysisResponse(BaseModel):
+    """Normalized response from pet audio analysis (e.g. barking, meowing)."""
+
+    mood: str = Field(
+        default="",
+        description="Inferred mood or state (e.g. excited, anxious, playful, distressed)",
+    )
+    confidence: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="Confidence in the analysis (0.0–1.0)",
+    )
+    species: list[SpeciesGuess] = Field(
+        default_factory=list,
+        description="Species guesses from the sound",
+    )
+    breeds: list[BreedGuess] = Field(
+        default_factory=list,
+        description="Breed guesses when applicable",
+    )
+    description: str | None = Field(
+        default=None,
+        description="Short free-form description of the sound",
+    )

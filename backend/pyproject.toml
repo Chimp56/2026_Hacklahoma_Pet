@@ -32,6 +32,7 @@ dependencies = [
     "opencv-python-headless>=4.8.0",
     "python-jose[cryptography]>=3.5.0",
     "bcrypt>=5.0.0",
+    "moviepy>=2.2.1",
 ]
 
 [project.optional-dependencies]

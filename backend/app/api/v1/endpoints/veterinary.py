@@ -1,5 +1,7 @@
 """Veterinary care endpoints: vets, vet visits, medical records (docs). All under /pets/{pet_id}/veterinary/."""
 
+from datetime import date
+
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 from fastapi.responses import Response
 from sqlalchemy import select
@@ -133,6 +135,26 @@ async def list_vet_visits(
         raise HTTPException(status_code=404, detail="Pet not found")
     result = await db.execute(
         select(VetVisit).where(VetVisit.pet_id == pet_id).order_by(VetVisit.visit_date.desc()).offset(skip).limit(limit)
+    )
+    return list(result.scalars().all())
+
+
+@router.get("/visits/upcoming", response_model=list[VetVisitResponse])
+async def list_upcoming_visits(
+    db: DbSession,
+    pet_id: int,
+    limit: int = Query(20, ge=1, le=100),
+) -> list[VetVisitResponse]:
+    """Upcoming vet visits for this pet (visit_date >= today). Ordered by visit_date ascending."""
+    pet = await pet_crud.get(db, id=pet_id)
+    if not pet:
+        raise HTTPException(status_code=404, detail="Pet not found")
+    today = date.today()
+    result = await db.execute(
+        select(VetVisit)
+        .where(VetVisit.pet_id == pet_id, VetVisit.visit_date >= today)
+        .order_by(VetVisit.visit_date.asc())
+        .limit(limit)
     )
     return list(result.scalars().all())
 

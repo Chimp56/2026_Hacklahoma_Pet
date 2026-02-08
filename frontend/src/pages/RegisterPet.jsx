@@ -1,8 +1,7 @@
-import React from 'react';
+import React from "react";
 import { Link } from "react-router-dom";
 
 export default function RegisterPet() {
-  
   const colors = {
     bgGradient: 'linear-gradient(135deg, #E0E7FF 0%, #F3E8FF 100%)',
     primary: '#A78BFA',
@@ -109,8 +108,8 @@ export default function RegisterPet() {
           Complete Registration
         </Link>
 
-        <p style={{ marginTop: '20px', fontSize: '14px', color: colors.textMuted }}>
-          Want to do this later? <Link to="/home" style={{ color: colors.primary, textDecoration: 'none' }}>Skip for now</Link>
+        <p style={{ marginTop: "20px", fontSize: "14px", color: colors.textMuted }}>
+          Want to do this later? <Link to="/home" style={{ color: colors.primary, textDecoration: "none" }}>Skip for now</Link>
         </p>
 
       </div>

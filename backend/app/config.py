@@ -42,6 +42,8 @@ class Settings(BaseSettings):
     secret_key: str = "change-me-in-production"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
+    # When set (e.g. 1), all authenticated users see this user's data (pets, events, etc.). Use with seeded demo data.
+    demo_user_id: int | None = None
 
     # AI: Gemini (use GEMINI_API_KEY and optionally GEMINI_API_KEY2, GEMINI_API_KEY3 for rotation on rate limit)
     gemini_api_key: str = ""

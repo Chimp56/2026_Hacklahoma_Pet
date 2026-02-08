@@ -39,9 +39,21 @@ Rules:
 AUDIO_PROMPT = """Analyze this audio of an animal (pet sounds: barking, meowing, etc.). Return ONLY a single JSON object with no markdown, using this structure:
 
 {
+  "mood": "<inferred mood or state: e.g. excited, anxious, playful, distressed, calm, curious>",
+  "confidence": <0.0-1.0 number for how confident you are in the analysis>,
   "species": [{"species": "<name>", "percentage": <0-100>}, ...],
   "breeds": [{"breed": "<name>", "percentage": <0-100>}, ...],
   "description": "<short description of the sound>"
+}
+
+Return only the JSON object."""
+
+ACTIVITY_PROMPT = """Look at this image of a pet (or pet environment). Infer from visible cues (e.g. resting, food bowl, time of day) and return ONLY a single JSON object with no markdown:
+
+{
+  "sleep_minutes": <integer, estimated sleep or rest minutes for the day so far; 0 if unknown>,
+  "meals_count": <integer, estimated number of meals today; 0 if unknown>,
+  "activity": "<one of: Low, Normal, High, or Unknown>"
 }
 
 Return only the JSON object."""
@@ -131,3 +143,19 @@ class GeminiAnalyzer(PetAnalyzer):
                 os.unlink(path)
             except OSError:
                 pass
+
+    async def analyze_activity(self, image_bytes: bytes, mime_type: str) -> dict[str, Any]:
+        """Infer sleep/meals/activity from a single image (e.g. camera frame)."""
+
+        def _generate(client: genai.Client) -> dict[str, Any]:
+            response = client.models.generate_content(
+                model=self._model_name,
+                contents=[
+                    types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
+                    ACTIVITY_PROMPT,
+                ],
+            )
+            text = (response.text or "{}").strip()
+            return _parse_json(text)
+
+        return self._rotate_and_retry(_generate)
