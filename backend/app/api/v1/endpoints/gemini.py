@@ -1,65 +1,38 @@
-"""Gemini API endpoints - pet image analysis."""
+"""AI analysis endpoints - image and audio via Gemini or Llama (model choice)."""
 
-import json
-import re
-from io import BytesIO
-from typing import Any
+from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 
-import google.generativeai as genai
-from fastapi import APIRouter, File, HTTPException, UploadFile
-from PIL import Image
+from app.schemas.gemini import GenerateTextRequest, PetAnalysisResponse
+from app.services.ai.llama_provider import LlamaAnalyzer
+from app.services.ai.registry import MODEL_IDS, get_analyzer
 
-from app.config import get_settings
-from app.schemas.gemini import PetAnalysisResponse
+router = APIRouter(prefix="/gemini", tags=["ai"])
 
-router = APIRouter(prefix="/gemini", tags=["gemini"])
-
-ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+ALLOWED_AUDIO_TYPES = {"audio/wav", "audio/wave", "audio/mpeg", "audio/mp3", "audio/webm"}
 MAX_FILE_SIZE = 20 * 1024 * 1024  # 20 MB
 
-PROMPT = """Analyze this image of an animal (pet or wildlife). Return ONLY a single JSON object with no markdown or explanation, using this exact structure. Percentages must sum to 100 per category when multiple options are given.
 
-{
-  "species": [{"species": "<name>", "percentage": <0-100>}, ...],
-  "breeds": [{"breed": "<name>", "percentage": <0-100>}, ...]
-}
-
-Rules:
-- species: list possible species with confidence percentages (e.g. dog 95%, wolf 5%). If only one animal is clearly one species, use one entry with 100.
-- breeds: list possible breeds with confidence percentages when the species has breeds (e.g. dog -> Golden Retriever 80%, Labrador 20%). If species has no breed concept (e.g. goldfish) or cannot be determined, use empty list [].
-- Return only the JSON object, nothing else."""
-
-
-def _parse_json_from_response(text: str) -> dict[str, Any]:
-    """Extract JSON from model response, stripping markdown code blocks if present."""
-    raw = text.strip()
-    # Remove optional markdown code fence
-    if raw.startswith("```"):
-        raw = re.sub(r"^```(?:json)?\s*", "", raw)
-        raw = re.sub(r"\s*```$", "", raw)
-    return json.loads(raw)
+@router.get("/models", response_model=list[tuple[str, str]])
+async def list_models() -> list[tuple[str, str]]:
+    """List available AI models for analysis (e.g. gemini, llama)."""
+    return MODEL_IDS
 
 
 @router.post("/analyze-pet", response_model=PetAnalysisResponse)
 async def analyze_pet_image(
     file: UploadFile = File(..., description="Image of a pet to analyze"),
+    model: str = Query("gemini", description="Model id: gemini | llama_vision (image); llama is text-only"),
 ) -> PetAnalysisResponse:
     """
-    Upload an image of a pet; returns structured JSON with species and/or breed
-    percentages (confidence scores) from Gemini vision.
+    Upload an image; get species and breed percentages.
+    Use model=gemini or model=llama_vision for images; llama is text-only.
     """
-    settings = get_settings()
-    if not settings.gemini_api_key:
-        raise HTTPException(
-            status_code=503,
-            detail="Gemini API key not configured. Set GEMINI_API_KEY in .env",
-        )
-
     content_type = file.content_type or ""
-    if content_type not in ALLOWED_CONTENT_TYPES:
+    if content_type not in ALLOWED_IMAGE_TYPES:
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid file type. Allowed: {', '.join(ALLOWED_CONTENT_TYPES)}",
+            detail=f"Invalid file type. Allowed: {', '.join(ALLOWED_IMAGE_TYPES)}",
         )
 
     body = await file.read()
@@ -70,29 +43,74 @@ async def analyze_pet_image(
         )
 
     try:
-        image = Image.open(BytesIO(body))
-        if image.mode not in ("RGB", "RGBA", "L"):
-            image = image.convert("RGB")
-    except OSError as e:
-        raise HTTPException(status_code=400, detail=f"Invalid or corrupted image: {e!s}") from e
-
-    genai.configure(api_key=settings.gemini_api_key)
-    model = genai.GenerativeModel(settings.gemini_model)
+        analyzer = get_analyzer(model)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
     try:
-        response = model.generate_content([image, PROMPT])
-        text = response.text
+        result = await analyzer.analyze_image(body, content_type)
+    except NotImplementedError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except ValueError as e:
+        raise HTTPException(status_code=503, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Gemini API error: {e!s}") from e
+        raise HTTPException(status_code=502, detail=f"AI provider error: {e!s}") from e
 
-    if not text:
-        raise HTTPException(status_code=502, detail="Gemini returned empty response")
+    return PetAnalysisResponse.model_validate(result)
+
+
+@router.post("/analyze-audio", response_model=dict)
+async def analyze_pet_audio(
+    file: UploadFile = File(..., description="Audio of pet (e.g. barking)"),
+    model: str = Query("gemini", description="Model id (audio supported: gemini only)"),
+) -> dict:
+    """Analyze audio; returns species/breeds/description. Only Gemini supports audio."""
+    content_type = file.content_type or ""
+    if content_type not in ALLOWED_AUDIO_TYPES and not file.filename:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid file type. Allowed: {', '.join(ALLOWED_AUDIO_TYPES)}",
+        )
+    body = await file.read()
+    if len(body) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=400, detail="File too large.")
 
     try:
-        data = _parse_json_from_response(text)
-        return PetAnalysisResponse.model_validate(data)
-    except (json.JSONDecodeError, ValueError) as e:
+        analyzer = get_analyzer(model)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+    try:
+        result = await analyzer.analyze_audio(body, content_type or "audio/wav")
+    except NotImplementedError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except ValueError as e:
+        raise HTTPException(status_code=503, detail=str(e)) from e
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"AI provider error: {e!s}") from e
+
+    return result
+
+
+@router.post("/generate-text", response_model=dict)
+async def generate_text(
+    body: GenerateTextRequest,
+    model: str = Query("llama", description="Model id (Llama from Hugging Face only)"),
+) -> dict:
+    """Generate text using Llama 3.2 1B Instruct (Hugging Face). Set HF_TOKEN in .env."""
+    try:
+        analyzer = get_analyzer(model)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    if not isinstance(analyzer, LlamaAnalyzer):
         raise HTTPException(
-            status_code=502,
-            detail=f"Failed to parse Gemini response as JSON: {e!s}",
-        ) from e
+            status_code=400,
+            detail="Text generation is only supported with model=llama (Hugging Face).",
+        )
+    try:
+        text = await analyzer.generate_text(body.prompt, max_new_tokens=body.max_new_tokens)
+    except ValueError as e:
+        raise HTTPException(status_code=503, detail=str(e)) from e
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"AI provider error: {e!s}") from e
+    return {"model": model, "generated_text": text}

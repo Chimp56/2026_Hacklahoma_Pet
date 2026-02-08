@@ -1,4 +1,6 @@
 .env
 .venv
 *.pyc
+*.exe
+
 node_modules

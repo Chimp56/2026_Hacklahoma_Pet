@@ -27,7 +27,7 @@ def create_application() -> FastAPI:
         title=settings.app_name,
         description="API for Pet-related features.",
         version=__version__,
-        docs_url="/docs",
+        docs_url="/api/docs",
         redoc_url="/redoc",
         openapi_url="/openapi.json",
         lifespan=lifespan,
