@@ -1,0 +1,375 @@
+/* =========================
+   Landing page ONLY (lp)
+   ========================= */
+
+.lp {
+  --bg: #f7efe6;
+  --soft: #eaf4ff;
+  --card: #ffffff;
+  --text: #111827;
+  --muted: #475569;
+  --border: rgba(0, 0, 0, 0.08);
+
+  /* Accent = your purple */
+  --accent: rgb(167, 139, 250);
+
+  /* Warm accent used for icon gradients */
+  --accent2: #ffb27a;
+
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+.lp * {
+  box-sizing: border-box;
+}
+
+/* Container */
+.lp__container {
+  width: min(1150px, calc(100% - 48px));
+  margin: 0 auto;
+}
+
+/* Utility */
+.center {
+  text-align: center;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* =========================
+   Sections
+   ========================= */
+.lp__section {
+  padding: 84px 0;
+}
+
+/* Soft section variants */
+.lp__soft {
+  background: var(--soft);
+}
+
+.lp__softOrange {
+  background: #fff1e6; /* light warm orange */
+}
+
+/* Light purple ONLY for benefits */
+.lp__softPurple {
+  background: #f3efff; /* light purple */
+}
+
+/* =========================
+   Hero Layout
+   ========================= */
+.lp__hero {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 64px;
+  align-items: center;
+}
+
+.lp__title {
+  margin: 0;
+  font-size: clamp(2.2rem, 4vw, 3.4rem);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+}
+
+.lp__accent {
+  color: var(--accent);
+}
+
+.lp__subtitle {
+  margin-top: 18px;
+  color: var(--muted);
+  font-size: 1.05rem;
+  max-width: 520px;
+}
+
+.lp__pills {
+  margin-top: 22px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.lp__pill {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 10px 14px;
+  font-weight: 700;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.06);
+}
+
+/* Hero art wrapper (no box) */
+.lp__heroArt {
+  position: relative;
+  width: 520px;
+  height: 360px;
+  margin-left: auto;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  border-radius: 0;
+  overflow: visible;
+}
+
+/* Overlay GIF/PNG size control */
+.lp__heroOverlay {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+
+  /* ✅ THIS controls gif + static logo size */
+  width: 380px;
+  height: 380px;
+
+  object-fit: contain;
+  pointer-events: none;
+  display: block;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+/* =========================
+   Headings / Grids
+   ========================= */
+.lp__h2 {
+  margin: 0 0 26px 0;
+  font-size: 1.6rem;
+  letter-spacing: -0.02em;
+}
+
+.lp__grid3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+/* Cards */
+.lp__card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  padding: 22px;
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.06);
+}
+
+.lp__card h3 {
+  margin: 12px 0 8px 0;
+}
+
+.lp__card p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.lp__cardIcon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--accent2), #ffd7bf);
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.lp__cardIcon img {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  display: block;
+}
+
+/* =========================
+   FAQ
+   ========================= */
+.lp__faq {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.lp__faqItem {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  padding: 18px;
+}
+
+.lp__faqItem h4 {
+  margin: 0 0 10px 0;
+}
+
+.lp__faqItem p {
+  margin: 0;
+  color: var(--muted);
+}
+
+/* =========================
+   Model visual section
+   ========================= */
+.lp__modelSection {
+  width: 100%;
+  background: #eef3ff; /* different from main bg */
+  padding: 70px 0;
+  display: flex;
+  justify-content: center;
+}
+
+.lp__modelImage {
+  /* ✅ Make it smaller by reducing these */
+  width: min(900px, 88%);
+  height: auto;
+  display: block;
+  object-fit: contain;
+}
+
+/* =========================
+   Community Preview Section
+   ========================= */
+.lp__communitySection {
+  background: #fff1e6; /* light warm orange */
+  padding: 90px 0;
+}
+
+.communityScroller {
+  position: relative;
+  margin-top: 48px;
+}
+
+.communityTrack {
+  display: flex;
+  gap: 24px;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  padding: 20px 0;
+
+  /* nicer scrolling on trackpads */
+  scroll-snap-type: x mandatory;
+}
+
+.communityTrack::-webkit-scrollbar {
+  display: none;
+}
+
+.communityCard {
+  position: relative;
+  min-width: 340px;
+  height: 520px;
+  border-radius: 20px;
+  overflow: hidden;
+  background: #000;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+
+  scroll-snap-align: start;
+}
+
+.communityCard video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Overlay */
+.communityOverlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+
+  padding: 14px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.65), rgba(0, 0, 0, 0.1));
+  color: white;
+
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.communityOverlay .avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid white;
+}
+
+.communityOverlay .username {
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.communityOverlay .actions {
+  margin-left: auto;
+  font-size: 0.85rem;
+  opacity: 0.9;
+}
+
+/* Scroll buttons */
+.scrollBtn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+
+  background: white;
+  border: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 18px;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+  z-index: 5;
+}
+
+.scrollBtn.left {
+  left: -20px;
+}
+
+.scrollBtn.right {
+  right: -20px;
+}
+
+.scrollBtn:hover {
+  transform: translateY(-50%) scale(1.05);
+}
+
+/* =========================
+   Responsive
+   ========================= */
+@media (max-width: 980px) {
+  .lp__hero {
+    grid-template-columns: 1fr;
+  }
+
+  .lp__heroArt {
+    width: 100%;
+    height: 320px;
+    margin: 24px auto 0 auto;
+  }
+
+  .lp__grid3,
+  .lp__faq {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  .lp__container {
+    width: min(1150px, calc(100% - 28px));
+  }
+
+  .lp__heroOverlay {
+    width: 240px;
+    height: 240px;
+  }
+
+  .communityCard {
+    min-width: 280px;
+    height: 460px;
+  }
+}
