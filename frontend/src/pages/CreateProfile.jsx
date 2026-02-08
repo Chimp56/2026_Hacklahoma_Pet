@@ -52,7 +52,8 @@ export default function CreateProfile() {
       alignItems: 'center', 
       justifyContent: 'center', 
       background: colors.bgGradient, 
-      fontFamily: 'sans-serif' 
+      fontFamily: 'sans-serif',
+      marginTop: '70px' // 👈 Added marginTop: 70
     }}>
       <div style={{ 
         width: '100%', 
