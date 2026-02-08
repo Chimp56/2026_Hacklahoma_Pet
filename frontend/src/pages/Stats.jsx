@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { Link } from "react-router-dom";
 import { usePet } from '../PetContext'; 
 
@@ -6,15 +6,23 @@ export default function Stats() {
   // --- PET SWITCHER STATE & CONTEXT ---
   const { pets, setPets, activePet, setActivePet } = usePet();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true); // Added sidebar state
 
   const [weekOffset, setWeekOffset] = useState(0); 
   const [currentActivity, setCurrentActivity] = useState('Active');
+  
+  // --- MEDICAL RECORDS ---
+  const fileInputRef = useRef(null);
+  const [medicalRecords, setMedicalRecords] = useState([
+    { id: 1, name: 'Vaccination_Record_2025.pdf', date: '2025-12-15', size: '1.2 MB' },
+    { id: 2, name: 'Annual_Checkup_Summary.docx', date: '2026-01-10', size: '450 KB' }
+  ]);
 
   // --- STYLE CONSTANTS ---
   const navbarHeight = '70px'; 
   const colors = {
     bgGradient: 'linear-gradient(135deg, #EEF2FF 0%, #F5F3FF 100%)',
-    sidebarBg: 'rgba(255, 255, 255, 0.7)',
+    sidebarBg: 'rgba(255, 255, 255, 0.95)', // Match Monitor/Home sidebar
     primary: '#A78BFA', 
     primaryDark: '#8B5CF6',
     textMain: '#1E293B',
@@ -22,8 +30,8 @@ export default function Stats() {
     white: '#FFFFFF',
     border: '#E2E8F0',
     wellness: '#10B981', 
-    warning: '#F59E0B',  
-    danger: '#EF4444',   
+    warning: '#F59E0B',   
+    danger: '#EF4444',    
     activity: '#f43fb8',
     accent: '#F5F3FF',
   };
@@ -55,10 +63,8 @@ export default function Stats() {
 
   const activityMap = { 'Very Active': 100, 'Active': 80, 'Low Energy': 45, 'Lethargic': 15 };
   
-  // SYNC LOGIC: Updated to use activePet from context
   const historyData = useMemo(() => ({
     "0": { 
-      // Using the stats directly from activePet ensures graph moves with sliders
       sleep: [8, 7, 9, 11, 8, 10, activePet.stats.sleepHours], 
       activity: activePet.stats.activityData 
     },
@@ -91,32 +97,17 @@ export default function Stats() {
   const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const lifetimeScores = [45, 55, 48, 82, 85, 78, 90, 88, 55, 42, 65, avgWellness];
 
-  const sidebarStyle = {
-    width: '280px', height: `calc(100vh - ${navbarHeight})`, backgroundColor: colors.sidebarBg,
-    backdropFilter: 'blur(15px)', borderRight: `1px solid ${colors.border}`, display: 'flex',
-    flexDirection: 'column', padding: '30px 20px', position: 'fixed', left: 0, top: navbarHeight,
-    boxSizing: 'border-box', zIndex: 900
-  };
-
-  const mainContentStyle = {
-    marginLeft: '280px', marginTop: navbarHeight, padding: '40px 60px',
-    height: `calc(100vh - ${navbarHeight})`, width: 'calc(100% - 280px)',
-    overflowY: 'auto', boxSizing: 'border-box'
-  };
-
-  // --- UPDATED HANDLERS TO ENSURE HOME PAGE SYNC ---
-
   const handleSleepUpdate = (newVal) => {
     const val = parseFloat(newVal);
     const updatedPets = pets.map(p => {
         if (p.id === activePet.id) {
             const updated = { ...p, stats: { ...p.stats, sleepHours: val } };
-            setActivePet(updated); // Sync Stats page view
+            setActivePet(updated); 
             return updated;
         }
         return p;
     });
-    setPets(updatedPets); // Sync Home page (master list)
+    setPets(updatedPets);
   };
 
   const handleActivityUpdate = (status) => {
@@ -127,18 +118,70 @@ export default function Stats() {
         const newActivity = [...p.stats.activityData];
         newActivity[6] = numericValue; 
         const updated = { ...p, stats: { ...p.stats, activityData: newActivity } };
-        setActivePet(updated); // Sync Stats page view
+        setActivePet(updated); 
         return updated;
       }
       return p;
     });
-    setPets(updatedPets); // Sync Home page (master list)
+    setPets(updatedPets);
+  };
+
+  const handleFileUpload = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      const newRecord = {
+        id: Date.now(),
+        name: file.name,
+        date: new Date().toISOString().split('T')[0],
+        size: (file.size / 1024).toFixed(1) + ' KB'
+      };
+      setMedicalRecords([newRecord, ...medicalRecords]);
+    }
   };
 
   return (
-    <div style={{ display: 'flex', height: '100vh', width: '100vw', background: colors.bgGradient, fontFamily: "'Inter', sans-serif", overflow: 'hidden' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', width: '100vw', background: colors.bgGradient, fontFamily: "'Inter', sans-serif", overflow: 'hidden' }}>
       
-      <aside style={sidebarStyle}>
+      {/* FLOATING RE-OPEN BUTTON */}
+      {!sidebarOpen && (
+        <button 
+          onClick={() => setSidebarOpen(true)}
+          style={{
+            position: 'fixed', left: '20px', top: '85px', zIndex: 1000,
+            background: colors.primary, color: 'white', border: 'none',
+            borderRadius: '50%', width: '40px', height: '40px', cursor: 'pointer',
+            boxShadow: '0 4px 12px rgba(167, 139, 250, 0.4)', fontSize: '18px'
+          }}
+        >
+          ➼ 
+        </button>
+      )}
+
+      {/* SIDEBAR */}
+      <aside style={{ 
+        width: '280px', height: `calc(100vh - ${navbarHeight})`, background: colors.sidebarBg, 
+        backdropFilter: 'blur(15px)', borderRight: `1px solid ${colors.border}`, 
+        padding: '30px 20px', position: 'fixed', 
+        left: sidebarOpen ? 0 : '-280px', 
+        top: navbarHeight, zIndex: 99, display: 'flex', flexDirection: 'column', 
+        boxSizing: 'border-box', transition: 'left 0.3s ease-in-out'
+      }}>
+        
+        {/* MATCHED CLOSE BUTTON (X) */}
+        <button 
+          onClick={() => setSidebarOpen(false)}
+          style={{
+            position: 'absolute', right: '15px', top: '15px',
+            background: 'none', border: 'none', color: colors.textMuted,
+            fontSize: '18px', cursor: 'pointer', fontWeight: 'bold',
+            opacity: 0.6, transition: 'opacity 0.2s'
+          }}
+          onMouseEnter={(e) => e.target.style.opacity = 1}
+          onMouseLeave={(e) => e.target.style.opacity = 0.6}
+        >
+          ✕
+        </button>
+
         <div style={{ marginBottom: '25px', position: 'relative' }}>
           <label style={{ fontSize: '10px', fontWeight: '900', opacity: 0.7, letterSpacing: '1.2px', textTransform: 'uppercase', display: 'block', marginBottom: '8px', color: colors.textMain }}>
             Active Profile
@@ -172,11 +215,19 @@ export default function Stats() {
 
         <div style={{ borderTop: `1px solid ${colors.border}`, paddingTop: '20px' }}>
           <Link to="/settings" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', textDecoration: 'none', color: colors.textMuted, fontWeight: '600', marginBottom: '8px' }}>⚙️ Account Settings</Link>
-          <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', textDecoration: 'none', color: '#EF4444', fontWeight: '600', borderRadius: '12px' }}>🚪 Logout</Link>
+          <Link to="/auth" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', background: 'none', border: 'none', color: colors.danger, fontWeight: '700', fontSize: '16px', cursor: 'pointer', textAlign: 'left' }}>🚪 Log Out</Link>
         </div>
       </aside>
 
-      <main style={mainContentStyle}>
+      {/* MAIN CONTENT */}
+      <main style={{
+        flex: 1,
+        marginLeft: sidebarOpen ? '280px' : '0px',
+        marginTop: navbarHeight, padding: '40px 60px',
+        height: `calc(100vh - ${navbarHeight})`,
+        overflowY: 'auto', boxSizing: 'border-box',
+        transition: 'margin-left 0.3s ease-in-out'
+      }}>
         <header style={{ marginBottom: '30px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <h1 style={{ margin: 0, fontSize: '32px', fontWeight: '900', color: colors.textMain }}>Weekly Wellness</h1>
@@ -190,6 +241,7 @@ export default function Stats() {
           </div>
         </header>
 
+        {/* --- STATS CONTENT --- */}
         <div style={{ backgroundColor: 'white', padding: '30px', borderRadius: '28px', border: `1px solid ${colors.border}`, marginBottom: '25px' }}>
           <div style={{ display: 'flex', gap: '20px', marginBottom: '30px', fontSize: '12px', fontWeight: 'bold' }}>
             <span><span style={{color: colors.wellness}}>●</span> <span style={{color: colors.warning}}>●</span> <span style={{color: colors.danger}}>●</span> Daily Wellness</span>
@@ -233,12 +285,52 @@ export default function Stats() {
           </div>
         </div>
 
-        <div style={{ backgroundColor: 'white', padding: '35px', borderRadius: '28px', border: `1px solid ${colors.border}`, marginBottom: '40px' }}>
+        <div style={{ backgroundColor: 'white', padding: '35px', borderRadius: '28px', border: `1px solid ${colors.border}`, marginBottom: '25px' }}>
           <h4 style={{ marginTop: 0, marginBottom: '25px' }}>Lifetime Progress (2026)</h4>
           <svg viewBox="0 0 780 180" style={{ width: '100%', height: 'auto', overflow: 'visible' }}>
             {lifetimeScores.map((score, i) => i === 0 ? null : <line key={i} x1={(i-1) * 68 + GRAPH_PADDING} y1={140 - (lifetimeScores[i-1] * 1.1)} x2={i * 68 + GRAPH_PADDING} y2={140 - (score * 1.1)} stroke={getThemeColor(score)} strokeWidth="5" strokeLinecap="round" />)}
             {months.map((m, i) => <text key={i} x={i * 68 + GRAPH_PADDING} y="165" textAnchor="middle" style={{ fontSize: '11px', fill: colors.textMuted, fontWeight: '800' }}>{m}</text>)}
           </svg>
+        </div>
+
+        {/* --- MEDICAL RECORDS --- */}
+        <div style={{ backgroundColor: 'white', padding: '35px', borderRadius: '28px', border: `1px solid ${colors.border}`, marginBottom: '40px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
+            <div>
+              <h4 style={{ margin: 0, fontSize: '20px', fontWeight: '800', color: colors.textMain }}>Medical Records</h4>
+              <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: colors.textMuted }}>Centralized history for {activePet?.name}</p>
+            </div>
+            <button 
+              onClick={() => fileInputRef.current.click()}
+              style={{ padding: '10px 20px', backgroundColor: colors.primary, color: 'white', border: 'none', borderRadius: '12px', fontWeight: '700', cursor: 'pointer', boxShadow: '0 4px 12px rgba(167, 139, 250, 0.3)' }}
+            >
+              + Upload Record
+            </button>
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              style={{ display: 'none' }} 
+              onChange={handleFileUpload} 
+              accept=".pdf,.doc,.docx,.jpg,.png"
+            />
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {medicalRecords.length > 0 ? medicalRecords.map(record => (
+              <div key={record.id} style={{ display: 'flex', alignItems: 'center', padding: '16px', borderRadius: '16px', border: `1px solid ${colors.border}`, backgroundColor: '#F9FAFB' }}>
+                <div style={{ fontSize: '24px', marginRight: '16px' }}>📄</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: '700', color: colors.textMain, fontSize: '14px' }}>{record.name}</div>
+                  <div style={{ fontSize: '12px', color: colors.textMuted }}>Uploaded on {record.date} • {record.size}</div>
+                </div>
+                <button style={{ background: 'none', border: 'none', color: colors.primary, fontWeight: '700', cursor: 'pointer', fontSize: '13px' }}>View</button>
+              </div>
+            )) : (
+              <div style={{ textAlign: 'center', padding: '40px', color: colors.textMuted, fontSize: '14px', border: `2px dashed ${colors.border}`, borderRadius: '20px' }}>
+                No medical records uploaded yet.
+              </div>
+            )}
+          </div>
         </div>
       </main>
     </div>

@@ -1,17 +1,18 @@
 import React, { useState } from 'react';
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { usePet } from '../PetContext';
 
 export default function Home({ events = [], petStats = {} }) {
   const { pets, activePet, setActivePet } = usePet();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true); // Added: Sidebar state
+  const navigate = useNavigate();
 
   const navbarHeight = '70px';
   const petName = activePet?.name || "Buddy";
   
-  // Get real-time day index (0 is Sunday, 6 is Saturday)
-  const realToday = new Date(); 
-  const currentDayIndex = realToday.getDay(); 
+  const realToday = new Date();
+  const currentDayIndex = realToday.getDay();
 
   const colors = {
     bgGradient: 'linear-gradient(135deg, #EEF2FF 0%, #F5F3FF 100%)',
@@ -23,24 +24,22 @@ export default function Home({ events = [], petStats = {} }) {
     textMuted: '#64748B',
     white: '#FFFFFF',
     accent: '#F5F3FF',
+    danger: '#EF4444',
     live: '#EF4444',
     border: '#E2E8F0'
   };
 
-  // SYNC LOGIC: 
-  // 1. Define baseline static data for the week
-  const staticWeeklyData = [8, 7, 9, 10, 8, 11, 9]; 
+  const staticWeeklyData = [0, 0, 0, 0, 0, 0, 0];
   const liveSleep = activePet?.stats?.sleepHours || 0;
 
-  // 2. Only override the bar that matches currentDayIndex
-  const weeklySleepData = staticWeeklyData.map((val, i) => 
+  const weeklySleepData = staticWeeklyData.map((val, i) =>
     i === currentDayIndex ? liveSleep : val
   );
 
   const upcomingEvents = events
     .filter(ev => {
       const evDate = new Date(ev.year, ev.month, ev.day);
-      return evDate >= new Date(2026, 1, 7); // Keeping your 2026 reference
+      return evDate >= new Date(2026, 1, 7); 
     })
     .sort((a, b) => new Date(a.year, a.month, a.day) - new Date(b.year, b.month, b.day))
     .slice(0, 3);
@@ -53,14 +52,20 @@ export default function Home({ events = [], petStats = {} }) {
   const sidebarStyle = {
     width: '280px', height: `calc(100vh - ${navbarHeight})`, backgroundColor: colors.sidebarBg,
     backdropFilter: 'blur(15px)', borderRight: `1px solid ${colors.border}`, display: 'flex',
-    flexDirection: 'column', padding: '30px 20px', position: 'fixed', left: 0, top: navbarHeight,
-    boxSizing: 'border-box', zIndex: 900
+    flexDirection: 'column', padding: '30px 20px', position: 'fixed', 
+    left: sidebarOpen ? 0 : '-280px', // Dynamic positioning
+    top: navbarHeight,
+    boxSizing: 'border-box', zIndex: 900,
+    transition: 'left 0.3s ease-in-out' // Smooth sliding
   };
 
   const mainContentStyle = {
-    marginLeft: '280px', marginTop: navbarHeight, padding: '40px 60px',
-    height: `calc(100vh - ${navbarHeight})`, width: 'calc(100% - 280px)',
-    overflowY: 'auto', boxSizing: 'border-box'
+    marginLeft: sidebarOpen ? '280px' : '0px', // Dynamic margin
+    marginTop: navbarHeight, padding: '40px 60px',
+    height: `calc(100vh - ${navbarHeight})`, 
+    width: sidebarOpen ? 'calc(100% - 280px)' : '100%', // Dynamic width
+    overflowY: 'auto', boxSizing: 'border-box',
+    transition: 'margin-left 0.3s ease-in-out, width 0.3s ease-in-out' // Smooth expansion
   };
 
   const cardStyle = {
@@ -70,7 +75,35 @@ export default function Home({ events = [], petStats = {} }) {
 
   return (
     <div style={pageWrapperStyle}>
+      
+      {/* FLOATING OPEN BUTTON (Only visible when sidebar is closed) */}
+      {!sidebarOpen && (
+        <button 
+          onClick={() => setSidebarOpen(true)}
+          style={{
+            position: 'fixed', left: '20px', top: '85px', zIndex: 1000,
+            background: colors.primary, color: 'white', border: 'none',
+            borderRadius: '50%', width: '40px', height: '40px', cursor: 'pointer',
+            boxShadow: '0 4px 12px rgba(167, 139, 250, 0.4)', fontSize: '18px'
+          }}
+        >
+          ➼ 
+        </button>
+      )}
+
       <aside style={sidebarStyle}>
+        {/* CLOSE SIDEBAR BUTTON */}
+        <button 
+          onClick={() => setSidebarOpen(false)}
+          style={{
+            position: 'absolute', right: '10px', top: '10px',
+            background: 'none', border: 'none', color: colors.textMuted,
+            fontSize: '18px', cursor: 'pointer', fontWeight: 'bold'
+          }}
+        >
+          ✕
+        </button>
+
         <div style={{ marginBottom: '25px', position: 'relative' }}>
           <label style={{ fontSize: '10px', fontWeight: '900', opacity: 0.7, letterSpacing: '1.2px', textTransform: 'uppercase', display: 'block', marginBottom: '8px', color: colors.textMain }}>
             Active Profile
@@ -114,7 +147,7 @@ export default function Home({ events = [], petStats = {} }) {
 
         <div style={{ borderTop: `1px solid ${colors.border}`, paddingTop: '20px' }}>
           <Link to="/settings" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', textDecoration: 'none', color: colors.textMuted, fontWeight: '600', marginBottom: '8px' }}><span>⚙️</span> Account Settings</Link>
-          <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', textDecoration: 'none', color: '#EF4444', fontWeight: '600', borderRadius: '12px' }}><span>🚪</span> Logout</Link>
+          <Link to="/auth" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', background: 'none', border: 'none', color: colors.danger, fontWeight: '700', fontSize: '16px', cursor: 'pointer', textAlign: 'left' }}>🚪 Log Out</Link>
         </div>
       </aside>
 
@@ -128,7 +161,47 @@ export default function Home({ events = [], petStats = {} }) {
           </p>
         </header>
 
+        {/* PET PROFILE SECTION */}
+        <div style={{ ...cardStyle, marginBottom: '40px', display: 'flex', alignItems: 'center', gap: '30px', position: 'relative' }}>
+          <div 
+            onClick={() => navigate('/register-pet', { state: { petToEdit: activePet } })}
+            style={{ fontSize: '60px', backgroundColor: colors.accent, padding: '20px', borderRadius: '50%', boxShadow: '0 4px 15px rgba(0,0,0,0.05)', cursor: 'pointer', border: `2px solid transparent`, transition: 'all 0.2s ease', position: 'relative' }}
+            onMouseOver={(e) => e.currentTarget.style.borderColor = colors.primary}
+            onMouseOut={(e) => e.currentTarget.style.borderColor = 'transparent'}
+          >
+            {activePet?.image || '🐾'}
+            <div style={{ position: 'absolute', bottom: '5px', right: '5px', background: colors.white, borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', boxShadow: '0 2px 5px rgba(0,0,0,0.1)', border: `1px solid ${colors.border}` }}>✏️</div>
+          </div>
+          <div style={{ flex: 1 }}>
+            <h2 style={{ margin: '0 0 5px 0', color: colors.textMain, fontWeight: '900' }}>{activePet?.name}'s Profile</h2>
+            <p style={{ margin: 0, color: colors.textMuted, fontWeight: '600' }}>
+              Registered Breed: <span style={{ color: colors.primary }}>{activePet?.breed || "Not specified"}</span>
+            </p>
+            <div style={{ display: 'flex', gap: '20px', marginTop: '15px' }}>
+               <div style={{ background: '#F8FAFC', padding: '10px 15px', borderRadius: '15px', border: `1px solid ${colors.border}` }}>
+                  <small style={{ display: 'block', color: colors.textMuted, fontSize: '10px', fontWeight: '800', textTransform: 'uppercase' }}>Age</small>
+                  <span style={{ fontWeight: '700', color: colors.textMain }}>{activePet?.age || "--"} years</span>
+               </div>
+               <div style={{ background: '#F8FAFC', padding: '10px 15px', borderRadius: '15px', border: `1px solid ${colors.border}` }}>
+                  <small style={{ display: 'block', color: colors.textMuted, fontSize: '10px', fontWeight: '800', textTransform: 'uppercase' }}>Weight</small>
+                  <span style={{ fontWeight: '700', color: colors.textMain }}>{activePet?.weight || "--"} lbs</span>
+               </div>
+               <div style={{ background: '#F8FAFC', padding: '10px 15px', borderRadius: '15px', border: `1px solid ${colors.border}` }}>
+                  <small style={{ display: 'block', color: colors.textMuted, fontSize: '10px', fontWeight: '800', textTransform: 'uppercase' }}>Gender</small>
+                  <span style={{ fontWeight: '700', color: colors.textMain }}>{activePet?.gender || "--"}</span>
+               </div>
+            </div>
+          </div>
+          <button 
+            onClick={() => navigate('/register-pet', { state: { petToEdit: activePet } })}
+            style={{ padding: '12px 20px', borderRadius: '15px', background: colors.accent, color: colors.primary, border: 'none', cursor: 'pointer', fontWeight: '700', fontSize: '14px' }}
+          >
+            Edit Profile
+          </button>
+        </div>
+
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '25px', paddingBottom: '40px' }}>
+          {/* Card: Live Monitor */}
           <div style={cardStyle}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px' }}>
               <h3 style={{ margin: 0 }}>Live Monitor</h3>
@@ -142,6 +215,7 @@ export default function Home({ events = [], petStats = {} }) {
             </div>
           </div>
 
+          {/* Card: Sleep */}
           <div style={cardStyle}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <h3 style={{ margin: 0 }}>Weekly Sleep Activity 🌙</h3>
@@ -155,7 +229,7 @@ export default function Home({ events = [], petStats = {} }) {
             <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: '180px', padding: '20px', backgroundColor: '#F8FAFC', borderRadius: '24px', gap: '12px' }}>
               {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, i) => {
                 const hrs = weeklySleepData[i];
-                const isToday = i === currentDayIndex; // Only highlight the actual current day
+                const isToday = i === currentDayIndex; 
                 const barHeight = Math.min((hrs / 18) * 100, 100);
 
                 return (
@@ -173,7 +247,7 @@ export default function Home({ events = [], petStats = {} }) {
             </div>
           </div>
 
-          {/* ... Rest of your cards ... */}
+          {/* Card: Events */}
           <div style={cardStyle}>
             <h3 style={{ margin: '0 0 20px 0' }}>Upcoming Events</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -191,14 +265,44 @@ export default function Home({ events = [], petStats = {} }) {
             </div>
           </div>
 
-          <div style={cardStyle}>
-            <h3 style={{ margin: '0 0 20px 0' }}>Community Buzz</h3>
-            <Link to="/community" style={{ display: 'flex', gap: '12px', alignItems: 'center', textDecoration: 'none' }}>
-              <div style={{ width: '45px', height: '45px', borderRadius: '50%', background: 'linear-gradient(135deg, #A78BFA, #F3E8FF)' }}></div>
-              <div>
-                <p style={{ margin: 0, fontSize: '14px', color: colors.textMain }}><b>Luna's Mom:</b> New dog park opened!</p>
-                <p style={{ margin: 0, fontSize: '12px', color: colors.textMuted }}>2 mins ago</p>
+          {/* Card: Breed Identifier */}
+          <div style={{ 
+            ...cardStyle, 
+            background: `linear-gradient(rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.95)), url('https://www.transparenttextures.com/patterns/p6.png')`,
+            display: 'flex', 
+            flexDirection: 'column', 
+            justifyContent: 'space-between',
+            position: 'relative',
+            overflow: 'hidden'
+          }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '15px' }}>
+                <div style={{ fontSize: '28px', background: colors.accent, padding: '8px', borderRadius: '12px' }}>🧬</div>
+                <h3 style={{ margin: 0, color: colors.textMain }}>Breed Identifier</h3>
               </div>
+              <p style={{ margin: 0, fontSize: '14px', color: colors.textMuted, lineHeight: '1.6' }}>
+                Curious about your pet's mix? Upload a photo and let our AI analyze unique physical traits to discover their breed heritage.
+              </p>
+            </div>
+            
+            <Link 
+              to="/breed-finder" 
+              style={{ 
+                marginTop: '25px',
+                display: 'block',
+                textAlign: 'center',
+                padding: '12px',
+                backgroundColor: colors.primary,
+                color: 'white',
+                textDecoration: 'none',
+                borderRadius: '14px',
+                fontWeight: '800',
+                fontSize: '14px',
+                boxShadow: `0 4px 12px ${colors.primary}40`,
+                transition: 'all 0.2s ease'
+              }}
+            >
+              Discover Breed Now →
             </Link>
           </div>
         </div>
