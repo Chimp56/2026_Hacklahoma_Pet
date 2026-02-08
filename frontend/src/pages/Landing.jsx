@@ -24,22 +24,7 @@ export default function Landing() {
   return (
     <div className="lp">
       {/* NAVBAR */}
-      <header className="lp__nav">
-        <div className="lp__container lp__navInner">
-          <div className="lp__brand">
-            <img className="lp__logo" src={logoPng} alt="PetPulse logo" />
-
-            <span className="lp__brandName">PetPulse</span>
-          </div>
-
-          <nav className="lp__links">
-            <a href="#benefits">Benefits</a>
-            <a href="#faq">FAQ</a>
-            <button className="lp__btn lp__btnGhost">Login</button>
-            <button className="lp__btn lp__btnPrimary">Start for free</button>
-          </nav>
-        </div>
-      </header>
+      
 
       {/* HERO */}
       <section className="lp__section">
