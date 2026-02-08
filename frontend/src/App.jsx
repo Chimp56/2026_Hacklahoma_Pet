@@ -11,7 +11,7 @@ import Settings from "./pages/Settings";
 import CreateProfile from "./pages/CreateProfile";
 import RegisterPet from "./pages/RegisterPet";
 import Moniter from "./pages/Moniter";
-import Calender from "./pages/Calender";
+import Calendar from "./pages/Calendar";
 import Stats from "./pages/Stats";
 import Community from "./pages/Community";
 
@@ -23,7 +23,7 @@ export default function App() {
       <Routes>
         <Route path="/community" element= {<Community />} />
         <Route path ="/stats" element= {<Stats />} />
-        <Route path ="/calender" element= {<Calender />} />
+        {<Route path ="/calendar" element= {<Calendar />} /> }
         <Route path="/moniter" element = {<Moniter />} />
         <Route path="/register-pet" element={<RegisterPet />} />
         <Route path="/create-profile" element={<CreateProfile />} />
