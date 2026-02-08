@@ -2,9 +2,10 @@
 
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import gemini, media, notifications, pets, stream
+from app.api.v1.endpoints import gemini, media, notifications, pets, stream, users
 
 api_router = APIRouter()
+api_router.include_router(users.router)
 api_router.include_router(pets.router)
 api_router.include_router(gemini.router)
 api_router.include_router(media.router)

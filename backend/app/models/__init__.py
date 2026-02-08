@@ -10,6 +10,7 @@ from app.models.milestone import Milestone
 from app.models.pet import Pet
 from app.models.sleep_log import SleepLog
 from app.models.user import User
+from app.models.user_pet import user_pets  # noqa: F401 - register table with Base.metadata
 
 __all__ = [
     "Activity",
