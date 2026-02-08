@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { usePet } from '../PetContext';
-import api, { pets as petsApi, requestOk } from '../api/api';
+import api, { pets as petsApi } from '../api/api';
 
 export default function RegisterPet() {
   const navigate = useNavigate();
@@ -84,7 +84,7 @@ export default function RegisterPet() {
 
     if (petToEdit?.id) {
       try {
-        const updated = await requestOk('PATCH', `/pets/${petToEdit.id}`, { body });
+        const updated = await petsApi.update(petToEdit.id, body);
         const frontendPet = apiPetToFrontend(updated);
         setPets(prev => prev.map(p => p.id === petToEdit.id ? { ...p, ...frontendPet } : p));
         setActivePet(prev => (prev?.id === petToEdit.id ? { ...prev, ...frontendPet } : prev));

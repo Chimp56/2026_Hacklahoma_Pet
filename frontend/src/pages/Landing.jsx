@@ -47,7 +47,7 @@ function HeroOverlayLogo() {
   );
 }
 
-// Text Flip Component
+// Text Flip Component — rotating word inline so "[Word] your pet with data" flows with no extra gap
 function TextFlip({ words }) {
   const [index, setIndex] = useState(0);
 
@@ -59,7 +59,7 @@ function TextFlip({ words }) {
   }, [words.length]);
 
   return (
-    <span style={{ display: "inline-block", position: "relative", minWidth: "200px" }}>
+    <span style={{ display: "inline-block", verticalAlign: "bottom" }}>
       <AnimatePresence mode="wait">
         <motion.span
           key={index}
@@ -67,7 +67,7 @@ function TextFlip({ words }) {
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: -20, opacity: 0 }}
           transition={{ duration: 0.5, ease: "easeInOut" }}
-          style={{ position: "absolute", left: 0 }}
+          style={{ display: "inline-block" }}
         >
           {words[index]}
         </motion.span>
@@ -78,7 +78,7 @@ function TextFlip({ words }) {
 
 export default function Landing() {
   const trackRef = useRef(null);
-  const words = ["Understand", "Love", "Take care", "Look after", "Connect", "Support"];
+  const words = ["Understand", "Love", "Support"];
 
   const communityCards = useMemo(
     () => [
