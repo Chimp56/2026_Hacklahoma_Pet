@@ -1,14 +1,34 @@
+import logoPng from "../assets/logo.png";
+import logoGif from "../assets/logo-gif.gif";
+import { useEffect, useState } from "react";
 import "./Landing.css";
-import logo from "../assets/logo.png";
+
+function HeroOverlayLogo() {
+  const [showGif, setShowGif] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setShowGif(false), 2200); // change to your gif duration (ms)
+    return () => clearTimeout(timer);
+  }, []);
+
+  return (
+    <img
+      className="lp__heroOverlay"
+      src={showGif ? logoGif : logoPng}
+      alt="PetPulse logo animation"
+    />
+  );
+}
 
 export default function Landing() {
   return (
     <div className="lp">
-      {/* Top Nav */}
+      {/* NAVBAR */}
       <header className="lp__nav">
         <div className="lp__container lp__navInner">
           <div className="lp__brand">
-            <img className="lp__logo" src={logo} alt="Logo" />
+            <img className="lp__logo" src={logoPng} alt="PetPulse logo" />
+
             <span className="lp__brandName">PetPulse</span>
           </div>
 
@@ -21,41 +41,40 @@ export default function Landing() {
         </div>
       </header>
 
-      {/* Hero */}
+      {/* HERO */}
       <section className="lp__section">
         <div className="lp__container lp__hero">
-          <div className="lp__heroLeft">
+          <div>
             <h1 className="lp__title">
-              Understand your pet with <span className="lp__accent">AI</span> insights.
+              Understand your pet with <span className="lp__accent">data</span>.
             </h1>
 
             <p className="lp__subtitle">
-              Upload video or audio and get clean summaries for sleep, activity,
-              and behavior trends — fast and simple.
+              Track sleep, activity, and behavior patterns using AI-powered video
+              and audio analysis.
             </p>
 
             <div className="lp__actions">
               <button className="lp__btn lp__btnPrimary">Get Started</button>
-              <button className="lp__btn lp__btnGhost">See Demo</button>
+              <button className="lp__btn lp__btnGhost">Learn More</button>
             </div>
 
             <div className="lp__pills">
-              <div className="lp__pill">100% camera/audio</div>
-              <div className="lp__pill">No wearables</div>
-              <div className="lp__pill">Trend tracking</div>
+              <div className="lp__pill">Video insights</div>
+              <div className="lp__pill">Audio detection</div>
+              <div className="lp__pill">Breed finder</div>
             </div>
           </div>
 
-          {/* Filler image using your logo for now */}
-          <div className="lp__heroRight">
-            <div className="lp__heroArt">
-              <img className="lp__heroImg" src={logo} alt="Hero art" />
-            </div>
+          {/* HERO MEDIA AREA (base image + overlay GIF) */}
+          <div className="lp__heroArt">
+                <HeroOverlayLogo />
           </div>
+
         </div>
       </section>
 
-      {/* Benefits */}
+      {/* BENEFITS */}
       <section id="benefits" className="lp__section lp__soft">
         <div className="lp__container">
           <h2 className="lp__h2">Benefits</h2>
@@ -63,47 +82,52 @@ export default function Landing() {
           <div className="lp__grid3">
             <div className="lp__card">
               <div className="lp__cardIcon">
-                <img src={logo} alt="" />
+                <img src="/logo.png" alt="" />
               </div>
-              <h3>Clear summaries</h3>
-              <p>Get simple results + confidence scores you can trust.</p>
+              <h3>Camera Analysis</h3>
+              <p>Detect sleep, movement, and routines from video clips.</p>
             </div>
 
             <div className="lp__card">
               <div className="lp__cardIcon">
-                <img src={logo} alt="" />
+                <img src="/logo.png" alt="" />
               </div>
-              <h3>Fast analysis</h3>
-              <p>Upload a clip and get insights without the mess.</p>
+              <h3>Audio Detection</h3>
+              <p>Spot stress or excitement patterns from sound.</p>
             </div>
 
             <div className="lp__card">
               <div className="lp__cardIcon">
-                <img src={logo} alt="" />
+                <img src="/logo.png" alt="" />
               </div>
-              <h3>Community</h3>
-              <p>Compare trends with similar pets (anonymously).</p>
+              <h3>Breed Finder</h3>
+              <p>Estimate breed percentages from an uploaded image.</p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Footer-ish */}
+      {/* FAQ */}
       <section id="faq" className="lp__section">
         <div className="lp__container">
           <h2 className="lp__h2">FAQ</h2>
+
           <div className="lp__faq">
             <div className="lp__faqItem">
-              <h4>Is this a medical tool?</h4>
-              <p>No — it detects behavior changes and trends, not diagnoses.</p>
+              <h4>Does this diagnose health issues?</h4>
+              <p>
+                No — it flags behavioral trends and changes, not medical diagnoses.
+              </p>
             </div>
+
             <div className="lp__faqItem">
               <h4>Do I need a wearable?</h4>
-              <p>Nope. Video/audio is enough for the demo and MVP.</p>
+              <p>Nope. The MVP works with video/audio uploads.</p>
             </div>
+
             <div className="lp__faqItem">
-              <h4>What can it track?</h4>
-              <p>Sleep/rest patterns, activity, and audio mood signals.</p>
+              <h4>What’s tracked?</h4>
+              <p>Sleep/rest time, activity, and audio mood signals.</p>
             </div>
           </div>
         </div>
