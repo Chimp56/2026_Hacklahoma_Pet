@@ -23,7 +23,7 @@ uv run run.py
 ```
 
 - API: http://localhost:8000  
-- Docs: http://localhost:8000/docs  
+- Docs: http://localhost:8000/api/docs  
 - Health: http://localhost:8000/health  
 
 ## Migrations (Alembic)
@@ -36,6 +36,32 @@ alembic revision --autogenerate -m "describe your change"
 alembic upgrade head
 # Rollback one revision:
 alembic downgrade -1
+```
+
+## Stream capture
+
+**API (Twitch):**
+
+- **`GET /api/v1/stream/url?channel=speedingchimp`** – Returns the direct HLS stream URL for the channel (uses streamlink). Use this URL with ffmpeg.
+- **`GET /api/v1/stream/current-frame?channel=speedingchimp`** – Returns the current live frame as JPEG (uses **OpenCV / cv2**). Use for quick capture or feeding into Gemini.
+
+Default channel is `speedingchimp`; override with query param `channel=<name>`.
+
+**Manual capture:** Install OBS and/or streamlink; save under `storage/stream_capture/` (see paths below).
+
+```bash
+cd backend
+mkdir -p storage/stream_capture storage/stream_capture/frames
+```
+
+```bash
+# Get stream URL via API: GET /api/v1/stream/url?channel=speedingchimp
+# Or CLI: streamlink --stream-url twitch.tv/speedingchimp best
+ffmpeg -i "<STREAM_URL>" -c copy -f segment -segment_time 10 -segment_format mp4 storage/stream_capture/segment_%03d.mp4
+```
+
+```bash
+ffmpeg -i storage/stream_capture/segment_001.mp4 -vf fps=1 storage/stream_capture/frames/frame_%04d.jpg
 ```
 
 ## Tests

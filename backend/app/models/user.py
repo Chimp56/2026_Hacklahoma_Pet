@@ -1,4 +1,4 @@
-"""User model for auth and community."""
+"""User model - name, email, password; one user has many pets."""
 
 from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -8,11 +8,12 @@ from app.models.base import TimestampMixin
 
 
 class User(Base, TimestampMixin):
-    """User account - owns pets, posts, and media."""
+    """User account: name, email, password (hashed). A user can have many pets."""
 
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     display_name: Mapped[str | None] = mapped_column(String(255), nullable=True)

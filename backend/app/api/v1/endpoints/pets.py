@@ -3,14 +3,21 @@
 from datetime import datetime
 from typing import Optional
 
+import httpx
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import Response
+from sqlalchemy import select
 
+from app.config import get_settings
 from app.core.dependencies import DbSession
 from app.crud.eating_log import eating_log_crud
 from app.crud.pet import pet_crud
 from app.crud.sleep_log import sleep_log_crud
+from app.models.media_file import MediaFile
 from app.schemas.habits import EatingLogCreate, EatingLogResponse, SleepLogCreate, SleepLogResponse
 from app.schemas.pet import PetCreate, PetResponse, PetUpdate
+from app.services.qr_code import generate_qr_png
+from app.services.storage import get_storage
 
 router = APIRouter(prefix="/pets", tags=["pets"])
 
@@ -56,6 +63,57 @@ async def delete_pet(db: DbSession, pet_id: int) -> None:
     deleted = await pet_crud.delete(db, id=pet_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Pet not found")
+
+
+@router.get("/{pet_id}/qr-code", response_class=Response)
+async def get_pet_qr_code(db: DbSession, pet_id: int) -> Response:
+    """
+    Generate a QR code that links to this pet's profile.
+    The center logo is the pet's profile picture if they have one, otherwise a paw icon.
+    """
+    pet = await pet_crud.get(db, id=pet_id)
+    if not pet:
+        raise HTTPException(status_code=404, detail="Pet not found")
+
+    settings = get_settings()
+    base = (settings.pet_profile_base_url or "http://localhost:3000").rstrip("/")
+    profile_url = f"{base}/pet/{pet_id}"
+
+    logo_bytes: Optional[bytes] = None
+    result = await db.execute(
+        select(MediaFile)
+        .where(MediaFile.pet_id == pet_id, MediaFile.file_type == "image")
+        .order_by(MediaFile.id.desc())
+        .limit(1)
+    )
+    media = result.scalar_one_or_none()
+    if media:
+        try:
+            storage = get_storage()
+            logo_bytes = storage.read(media.storage_key)
+        except Exception:
+            pass
+
+    token = (settings.qr_code_api_access_token or "").strip()
+    if token and logo_bytes is None:
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                r = await client.post(
+                    "https://api.qr-code-generator.com/v1/create",
+                    params={"access-token": token},
+                    json={
+                        "frame_name": "no-frame",
+                        "qr_code_text": profile_url,
+                        "image_format": "PNG",
+                        "qr_code_logo": "scan-me-square",
+                    },
+                )
+                r.raise_for_status()
+                return Response(content=r.content, media_type="image/png")
+        except httpx.HTTPError:
+            pass
+    png_bytes = generate_qr_png(profile_url, logo_bytes=logo_bytes)
+    return Response(content=png_bytes, media_type="image/png")
 
 
 # --- Sleep habits ---

@@ -37,7 +37,11 @@ def _url_and_connect_args_for_asyncpg(url: str) -> tuple[str, dict[str, Any]]:
     clean = urlunparse(parsed._replace(query=new_query))
     connect_args: dict[str, Any] = {}
     if ssl_requested:
-        connect_args["ssl"] = ssl.create_default_context()
+        ctx = ssl.create_default_context()
+        if get_settings().database_ssl_no_verify:
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+        connect_args["ssl"] = ctx
     return clean, connect_args
 
 

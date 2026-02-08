@@ -11,6 +11,7 @@ app/api/v1/endpoints/gemini.py
 app/api/v1/endpoints/media.py
 app/api/v1/endpoints/notifications.py
 app/api/v1/endpoints/pets.py
+app/api/v1/endpoints/stream.py
 app/core/__init__.py
 app/core/dependencies.py
 app/core/security.py
@@ -37,6 +38,7 @@ app/schemas/gemini.py
 app/schemas/habits.py
 app/schemas/pet.py
 app/services/__init__.py
+app/services/qr_code.py
 app/services/ai/__init__.py
 app/services/ai/base.py
 app/services/ai/gemini_provider.py

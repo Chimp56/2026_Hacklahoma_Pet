@@ -27,6 +27,8 @@ class Settings(BaseSettings):
 
     # Database (must use asyncpg; plain postgresql:// is normalized to postgresql+asyncpg://)
     database_url: str = "postgresql+asyncpg://user:password@localhost:5432/pet_db"
+    # Set True to disable SSL cert verification (e.g. self-signed certs; use only when needed)
+    database_ssl_no_verify: bool = False
 
     @property
     def database_url_asyncpg(self) -> str:
@@ -74,6 +76,11 @@ class Settings(BaseSettings):
 
     # Notification flags: comma-separated event types that trigger Slack (e.g. milestone,health_alert,anomaly)
     notification_flag_events: str = "milestone,health_alert,anomaly"
+
+    # QR code: base URL for pet profile links (e.g. https://myapp.com or http://localhost:3000)
+    pet_profile_base_url: str = "http://localhost:3000"
+    # Optional: qr-code-generator.com API token (if set, use their API with preset logo; else generate locally with pet photo or paw)
+    qr_code_api_access_token: str = ""
 
     # CORS
     cors_origins: str = "http://localhost:3000"
