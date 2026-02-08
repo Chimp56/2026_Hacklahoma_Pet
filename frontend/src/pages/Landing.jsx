@@ -1,7 +1,8 @@
 // src/pages/Landing.jsx
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import "./Landing.css";
 
+// Images / icons (src/assets)
 import logoPng from "../assets/logo.png";
 import logoGif from "../assets/logo-gif.gif";
 import cameraIcon from "../assets/camera.png";
@@ -9,13 +10,13 @@ import audioIcon from "../assets/audio.png";
 import magnifyingGlassIcon from "../assets/magnifying-glass.png";
 import modelImg from "../assets/model.png";
 
-// ✅ import videos from src/assets
+// Videos (src/assets)
 import vid1 from "../assets/vid1.mp4";
 import vid2 from "../assets/vid2.mp4";
 import vid3 from "../assets/vid3.mp4";
 import vid4 from "../assets/vid4.mp4";
 
-// ✅ import avatars from src/assets
+// Avatars (src/assets)
 import avatar1 from "../assets/avatar1.png";
 import avatar2 from "../assets/avatar2.png";
 import avatar3 from "../assets/avatar3.png";
@@ -25,46 +26,58 @@ function HeroOverlayLogo() {
   const [showGif, setShowGif] = useState(true);
 
   useEffect(() => {
+    // Loop: GIF plays, then PNG, then restart every 5s (change if you want)
     const interval = setInterval(() => {
-      // restart gif by toggling it off then back on
       setShowGif(false);
-
-      setTimeout(() => {
-        setShowGif(true);
-      }, 50); // tiny delay forces reload
-    }, 5000); // every 3 seconds
+      setTimeout(() => setShowGif(true), 60); // forces reload
+    }, 5000);
 
     return () => clearInterval(interval);
   }, []);
 
   return (
     <img
-      key={showGif ? "gif" : "png"}   // forces remount
+      key={showGif ? "gif" : "png"} // remount = restart gif
       className="lp__heroOverlay"
       src={showGif ? logoGif : logoPng}
-      alt="PetPulse logo animation"
+      alt="Logo animation"
+      draggable="false"
     />
   );
 }
 
-
 export default function Landing() {
+  const trackRef = useRef(null);
+
+  const communityCards = useMemo(
+    () => [
+      { vid: vid1, avatar: avatar4, user: "@lee", likes: 214, comments: 32 },
+      { vid: vid2, avatar: avatar2, user: "@wen_deasel", likes: 189, comments: 21 },
+      { vid: vid3, avatar: avatar3, user: "@azbah", likes: 302, comments: 44 },
+      { vid: vid4, avatar: avatar1, user: "@Chimp56", likes: 167, comments: 18 },
+    ],
+    []
+  );
+
+  const scrollTrack = (dir) => {
+    const el = trackRef.current;
+    if (!el) return;
+    el.scrollBy({ left: dir * 420, behavior: "smooth" });
+  };
+
   return (
     <div className="lp">
       {/* HERO */}
       <section className="lp__section">
         <div className="lp__container lp__hero">
-          <div>
+          <div className="lp__heroLeft">
             <h1 className="lp__title">
               Understand your pet with <span className="lp__accent">data</span>.
             </h1>
 
             <p className="lp__subtitle">
-              Track sleep, activity, and behavior patterns using AI-powered video
-              and audio analysis.
+              Track sleep, activity, and behavior using AI-powered video + audio analysis.
             </p>
-
-          
 
             <div className="lp__pills">
               <div className="lp__pill">Video insights</div>
@@ -73,7 +86,7 @@ export default function Landing() {
             </div>
           </div>
 
-          <div className="lp__heroArt">
+          <div className="lp__heroArt" aria-hidden="true">
             <HeroOverlayLogo />
           </div>
         </div>
@@ -83,8 +96,9 @@ export default function Landing() {
       <section className="lp__modelSection">
         <img
           src={modelImg}
-          alt="PetPulse behavior model visualization"
+          alt="Behavior model visualization"
           className="lp__modelImage"
+          draggable="false"
         />
       </section>
 
@@ -92,73 +106,43 @@ export default function Landing() {
       <section className="lp__communitySection">
         <div className="lp__container">
           <h2 className="lp__h2 center">
-            Join a community that actually{" "}
-            <span className="lp__accent">cares</span>
+            Join a community that actually <span className="lp__accent">cares</span>
           </h2>
 
           <p className="lp__subtitle center">
-            Share moments, learn from others, and spot patterns you’d miss alone.
+            Share moments, learn from others, and understand your pet better.
           </p>
 
           <div className="communityScroller">
             <button
+              type="button"
               className="scrollBtn left"
-              onClick={() =>
-                document.getElementById("communityTrack")?.scrollBy({
-                  left: -420,
-                  behavior: "smooth",
-                })
-              }
+              onClick={() => scrollTrack(-1)}
+              aria-label="Scroll left"
             >
               ←
             </button>
 
-            <div className="communityTrack" id="communityTrack">
-              <div className="communityCard">
-                <video src={vid1} muted autoPlay loop playsInline />
-                <div className="communityOverlay">
-                  <img src={avatar1} className="avatar" alt="" />
-                  <span className="username">@chimp56</span>
-                  <div className="actions">❤️ 214 💬 32</div>
+            <div className="communityTrack" ref={trackRef}>
+              {communityCards.map((c, idx) => (
+                <div className="communityCard" key={idx}>
+                  <video src={c.vid} muted autoPlay loop playsInline preload="metadata" />
+                  <div className="communityOverlay">
+                    <img src={c.avatar} className="avatar" alt="" draggable="false" />
+                    <span className="username">{c.user}</span>
+                    <div className="actions">
+                      ❤️ {c.likes} &nbsp;&nbsp; 💬 {c.comments}
+                    </div>
+                  </div>
                 </div>
-              </div>
-
-              <div className="communityCard">
-                <video src={vid2} muted autoPlay loop playsInline />
-                <div className="communityOverlay">
-                  <img src={avatar2} className="avatar" alt="" />
-                  <span className="username">@wen_deasel</span>
-                  <div className="actions">❤️ 189 💬 21</div>
-                </div>
-              </div>
-
-              <div className="communityCard">
-                <video src={vid3} muted autoPlay loop playsInline />
-                <div className="communityOverlay">
-                  <img src={avatar3} className="avatar" alt="" />
-                  <span className="username">@azbah</span>
-                  <div className="actions">❤️ 302 💬 44</div>
-                </div>
-              </div>
-
-              <div className="communityCard">
-                <video src={vid4} muted autoPlay loop playsInline />
-                <div className="communityOverlay">
-                  <img src={avatar4} className="avatar" alt="" />
-                  <span className="username">@noor.paws</span>
-                  <div className="actions">❤️ 167 💬 18</div>
-                </div>
-              </div>
+              ))}
             </div>
 
             <button
+              type="button"
               className="scrollBtn right"
-              onClick={() =>
-                document.getElementById("communityTrack")?.scrollBy({
-                  left: 420,
-                  behavior: "smooth",
-                })
-              }
+              onClick={() => scrollTrack(1)}
+              aria-label="Scroll right"
             >
               →
             </button>
@@ -166,8 +150,8 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* BENEFITS */}
-      <section id="benefits" className="lp__section lp__softOrange">
+      {/* BENEFITS (change className to lp__softPurple if you made that class) */}
+      <section id="benefits" className="lp__section lp__softPurple">
         <div className="lp__container">
           <h2 className="lp__h2">Benefits</h2>
 
@@ -177,7 +161,9 @@ export default function Landing() {
                 <img src={cameraIcon} alt="Camera analysis" />
               </div>
               <h3>Camera Analysis</h3>
-              <p>Detect sleep, movement, and routines from video clips.</p>
+              <p>
+                Detect activity, rest, and routines from short clips — summarized clearly.
+              </p>
             </div>
 
             <div className="lp__card">
@@ -185,7 +171,9 @@ export default function Landing() {
                 <img src={audioIcon} alt="Audio detection" />
               </div>
               <h3>Audio Detection</h3>
-              <p>Spot stress or excitement patterns from sound.</p>
+              <p>
+                Flag stress/excitement signals from audio and track changes over time.
+              </p>
             </div>
 
             <div className="lp__card">
@@ -193,7 +181,7 @@ export default function Landing() {
                 <img src={magnifyingGlassIcon} alt="Breed finder" />
               </div>
               <h3>Breed Finder</h3>
-              <p>Estimate breed percentages from an uploaded image.</p>
+              <p>Estimate likely breeds from an uploaded photo (quick + simple).</p>
             </div>
           </div>
         </div>
@@ -207,17 +195,19 @@ export default function Landing() {
           <div className="lp__faq">
             <div className="lp__faqItem">
               <h4>Does this diagnose health issues?</h4>
-              <p>No — it flags behavioral trends, not medical diagnoses.</p>
+              <p>No — it highlights behavioral changes and trends, not diagnoses.</p>
             </div>
 
             <div className="lp__faqItem">
-              <h4>Do I need a wearable?</h4>
-              <p>No. The MVP works with video and audio uploads.</p>
+              <h4>Is my data private?</h4>
+              <p>
+                Yes. Uploads are processed securely and only shared if you choose to post.
+              </p>
             </div>
 
             <div className="lp__faqItem">
-              <h4>What’s tracked?</h4>
-              <p>Sleep, activity, wellbeing, and behavior trends.</p>
+              <h4>Who is this for?</h4>
+              <p>Pet owners who want a clearer read on habits, routines, and wellbeing.</p>
             </div>
           </div>
         </div>

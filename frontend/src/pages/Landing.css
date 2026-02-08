@@ -9,7 +9,11 @@
   --text: #111827;
   --muted: #475569;
   --border: rgba(0, 0, 0, 0.08);
-  --accent: #ff7a1a;
+
+  /* Accent = your purple */
+  --accent: rgb(167, 139, 250);
+
+  /* Warm accent used for icon gradients */
   --accent2: #ffb27a;
 
   background: var(--bg);
@@ -27,59 +31,11 @@
   margin: 0 auto;
 }
 
-/* =========================
-   Navbar
-   ========================= */
-.lp__nav {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  background: rgba(247, 239, 230, 0.85);
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid var(--border);
-}
-
-.lp__navInner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 18px 0;
-}
-
-.lp__brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.lp__logo {
-  width: 44px; /* navbar logo size */
-  height: 44px;
-  object-fit: contain;
-  display: block;
-}
-
-.lp__brandName {
-  font-weight: 800;
-  letter-spacing: -0.02em;
-}
-
-/* Links */
-.lp__links {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.lp__links a {
-  text-decoration: none;
-  color: var(--text);
-  font-weight: 600;
-  opacity: 0.9;
-}
-
-.lp__links a:hover {
-  opacity: 1;
+/* Utility */
+.center {
+  text-align: center;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 /* =========================
@@ -89,8 +45,18 @@
   padding: 84px 0;
 }
 
+/* Soft section variants */
 .lp__soft {
   background: var(--soft);
+}
+
+.lp__softOrange {
+  background: #fff1e6; /* light warm orange */
+}
+
+/* Light purple ONLY for benefits */
+.lp__softPurple {
+  background: #f3efff; /* light purple */
 }
 
 /* =========================
@@ -121,38 +87,6 @@
   max-width: 520px;
 }
 
-.lp__actions {
-  margin-top: 26px;
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-/* Buttons */
-.lp__btn {
-  border: 1px solid var(--border);
-  background: white;
-  padding: 11px 18px;
-  border-radius: 999px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.lp__btnPrimary {
-  background: var(--accent);
-  color: white;
-  border-color: transparent;
-}
-
-.lp__btnPrimary:hover {
-  filter: brightness(0.95);
-}
-
-.lp__btnGhost {
-  background: transparent;
-}
-
-/* Pills */
 .lp__pills {
   margin-top: 22px;
   display: flex;
@@ -169,17 +103,12 @@
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.06);
 }
 
-/* =========================
-   Hero Media (NO BOX)
-   - This is just a positioning wrapper
-   - NO background/border/shadow
-   ========================= */
+/* Hero art wrapper (no box) */
 .lp__heroArt {
   position: relative;
-  width: 520px;   /* size of the hero media area */
+  width: 520px;
   height: 360px;
   margin-left: auto;
-
   background: transparent;
   border: none;
   box-shadow: none;
@@ -187,36 +116,26 @@
   overflow: visible;
 }
 
-/* Base hero image (optional).
-   If you removed the base image from JSX, you can delete this whole block. */
-.lp__heroImg {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  display: block;
-  background: transparent;
-  border: none;
-  box-shadow: none;
-}
-
-/* Overlay: GIF then PNG */
+/* Overlay GIF/PNG size control */
 .lp__heroOverlay {
   position: absolute;
   inset: 0;
   margin: auto;
-  width: 380px;  /* overlay size */
+
+  /* ✅ THIS controls gif + static logo size */
+  width: 380px;
   height: 380px;
+
   object-fit: contain;
   pointer-events: none;
-
+  display: block;
   background: transparent;
   border: none;
   box-shadow: none;
-  display: block;
 }
 
 /* =========================
-   Benefits cards
+   Headings / Grids
    ========================= */
 .lp__h2 {
   margin: 0 0 26px 0;
@@ -230,6 +149,7 @@
   gap: 18px;
 }
 
+/* Cards */
 .lp__card {
   background: var(--card);
   border: 1px solid var(--border);
@@ -290,81 +210,30 @@
 }
 
 /* =========================
-   Responsive
-   ========================= */
-@media (max-width: 980px) {
-  .lp__hero {
-    grid-template-columns: 1fr;
-  }
-
-  .lp__heroArt {
-    width: 100%;
-    height: 320px;
-    margin: 24px auto 0 auto;
-  }
-
-  .lp__grid3,
-  .lp__faq {
-    grid-template-columns: 1fr;
-  }
-
-  .lp__links {
-    gap: 10px;
-  }
-}
-
-@media (max-width: 520px) {
-  .lp__container {
-    width: min(1150px, calc(100% - 28px));
-  }
-
-  .lp__heroOverlay {
-    width: 170px;
-    height: 170px;
-  }
-}
-
-/* =========================
    Model visual section
    ========================= */
-
 .lp__modelSection {
   width: 100%;
-  background: #eef3ff;          /* soft light color (different from page bg) */
-  padding: 80px 0;              /* vertical breathing room */
+  background: #eef3ff; /* different from main bg */
+  padding: 70px 0;
   display: flex;
   justify-content: center;
 }
 
 .lp__modelImage {
-  width: 80%;                   /* responsive scaling */
-  max-width: 1200px;             /* 👈 THIS controls how big it gets */
+  /* ✅ Make it smaller by reducing these */
+  width: min(900px, 88%);
   height: auto;
   display: block;
   object-fit: contain;
 }
 
-/* Soft section variants */
-.lp__soft {
-  background: var(--soft);
-}
-
-.lp__softOrange {
-  background: #fff1e6; /* very light orange */
-}
-
-
 /* =========================
    Community Preview Section
    ========================= */
-
 .lp__communitySection {
   background: #fff1e6; /* light warm orange */
   padding: 90px 0;
-}
-
-.center {
-  text-align: center;
 }
 
 .communityScroller {
@@ -378,6 +247,9 @@
   overflow-x: auto;
   scroll-behavior: smooth;
   padding: 20px 0;
+
+  /* nicer scrolling on trackpads */
+  scroll-snap-type: x mandatory;
 }
 
 .communityTrack::-webkit-scrollbar {
@@ -391,7 +263,9 @@
   border-radius: 20px;
   overflow: hidden;
   background: #000;
-  box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+
+  scroll-snap-align: start;
 }
 
 .communityCard video {
@@ -406,13 +280,11 @@
   bottom: 0;
   left: 0;
   right: 0;
+
   padding: 14px;
-  background: linear-gradient(
-    to top,
-    rgba(0,0,0,0.65),
-    rgba(0,0,0,0.1)
-  );
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.65), rgba(0, 0, 0, 0.1));
   color: white;
+
   display: flex;
   align-items: center;
   gap: 10px;
@@ -442,6 +314,7 @@
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
+
   background: white;
   border: none;
   width: 44px;
@@ -449,7 +322,7 @@
   border-radius: 50%;
   cursor: pointer;
   font-size: 18px;
-  box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
   z-index: 5;
 }
 
@@ -465,8 +338,38 @@
   transform: translateY(-50%) scale(1.05);
 }
 
-.center {
-  text-align: center;
-  margin-left: auto;
-  margin-right: auto;
+/* =========================
+   Responsive
+   ========================= */
+@media (max-width: 980px) {
+  .lp__hero {
+    grid-template-columns: 1fr;
+  }
+
+  .lp__heroArt {
+    width: 100%;
+    height: 320px;
+    margin: 24px auto 0 auto;
+  }
+
+  .lp__grid3,
+  .lp__faq {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  .lp__container {
+    width: min(1150px, calc(100% - 28px));
+  }
+
+  .lp__heroOverlay {
+    width: 240px;
+    height: 240px;
+  }
+
+  .communityCard {
+    min-width: 280px;
+    height: 460px;
+  }
 }
