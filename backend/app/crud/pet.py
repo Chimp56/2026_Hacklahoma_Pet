@@ -29,11 +29,15 @@ class CRUDPet:
         return result.scalars().all()
 
     async def create(self, db: AsyncSession, *, obj_in: PetCreate) -> Pet:
-        """Create a pet."""
+        """Create a pet. Sets owner_id if provided; caller should add (owner_id, pet_id) to user_pets."""
         pet = Pet(
             name=obj_in.name,
             species=obj_in.species,
             breed=obj_in.breed,
+            gender=obj_in.gender,
+            date_of_birth=obj_in.date_of_birth,
+            health_notes=obj_in.health_notes,
+            owner_id=obj_in.owner_id,
         )
         db.add(pet)
         await db.flush()

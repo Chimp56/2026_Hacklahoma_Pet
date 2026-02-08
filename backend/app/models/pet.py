@@ -5,10 +5,11 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 from app.models.base import TimestampMixin
+from app.models.user_pet import user_pets
 
 
 class Pet(Base, TimestampMixin):
-    """Pet profile - species, breed, age, gender, health, linked to owner."""
+    """Pet profile - species, breed, age, gender, health. Can belong to multiple users (shared via QR/link)."""
 
     __tablename__ = "pets"
 
@@ -22,11 +23,15 @@ class Pet(Base, TimestampMixin):
     health_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     owner: Mapped["User | None"] = relationship("User", back_populates="pets")
+    linked_users: Mapped[list["User"]] = relationship(
+        "User", secondary=user_pets, back_populates="linked_pets", lazy="selectin"
+    )
     activities: Mapped[list["Activity"]] = relationship("Activity", back_populates="pet", lazy="selectin")
     milestones: Mapped[list["Milestone"]] = relationship("Milestone", back_populates="pet", lazy="selectin")
     llm_outputs: Mapped[list["LLMOutput"]] = relationship("LLMOutput", back_populates="pet", lazy="selectin")
     sleep_logs: Mapped[list["SleepLog"]] = relationship("SleepLog", back_populates="pet", lazy="selectin")
     eating_logs: Mapped[list["EatingLog"]] = relationship("EatingLog", back_populates="pet", lazy="selectin")
+    vet_visits: Mapped[list["VetVisit"]] = relationship("VetVisit", back_populates="pet", lazy="selectin")
 
     def __repr__(self) -> str:
         return f"<Pet(id={self.id}, name={self.name!r})>"

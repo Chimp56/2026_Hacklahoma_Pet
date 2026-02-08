@@ -13,6 +13,7 @@ ALLOWED = {
     "image": {"image/jpeg", "image/png", "image/webp", "image/gif"},
     "audio": {"audio/wav", "audio/wave", "audio/mpeg", "audio/mp3", "audio/webm"},
     "video": {"video/mp4", "video/webm", "video/quicktime"},
+    "document": {"application/pdf"},
 }
 MAX_SIZE = 100 * 1024 * 1024  # 100 MB
 
@@ -21,7 +22,7 @@ MAX_SIZE = 100 * 1024 * 1024  # 100 MB
 async def upload_media(
     db: DbSession,
     file: UploadFile = File(...),
-    file_type: str = Query("image", description="image | audio | video"),
+    file_type: str = Query("image", description="image | audio | video | document (PDF)"),
     owner_id: int = Query(1, description="Owner user id (from auth when available)"),
     pet_id: int | None = Query(None, description="Optional pet id to associate"),
 ) -> dict:

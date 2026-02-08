@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Optional
 
 import httpx
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 from fastapi.responses import Response
 from sqlalchemy import select
 
@@ -14,6 +14,7 @@ from app.crud.eating_log import eating_log_crud
 from app.crud.pet import pet_crud
 from app.crud.sleep_log import sleep_log_crud
 from app.models.media_file import MediaFile
+from app.models.user import User
 from app.schemas.habits import EatingLogCreate, EatingLogResponse, SleepLogCreate, SleepLogResponse
 from app.schemas.pet import PetCreate, PetResponse, PetUpdate
 from app.services.qr_code import generate_qr_png
@@ -44,8 +45,14 @@ async def get_pet(db: DbSession, pet_id: int) -> PetResponse:
 
 @router.post("", response_model=PetResponse, status_code=201)
 async def create_pet(db: DbSession, body: PetCreate) -> PetResponse:
-    """Create a new pet."""
-    return await pet_crud.create(db, obj_in=body)
+    """Create a new pet. If owner_id is set, that user is linked to the pet (and sees it in their pets list)."""
+    pet = await pet_crud.create(db, obj_in=body)
+    if pet.owner_id:
+        user = await db.get(User, pet.owner_id)
+        if user:
+            user.linked_pets.append(pet)
+            await db.flush()
+    return pet
 
 
 @router.patch("/{pet_id}", response_model=PetResponse)
@@ -63,6 +70,60 @@ async def delete_pet(db: DbSession, pet_id: int) -> None:
     deleted = await pet_crud.delete(db, id=pet_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Pet not found")
+
+
+@router.post("/{pet_id}/add-to-account", response_model=PetResponse, status_code=201)
+async def add_pet_to_account(
+    db: DbSession,
+    pet_id: int,
+    user_id: int = Query(..., description="User id of the account to add this pet to (from auth when available)"),
+) -> PetResponse:
+    """
+    Add this pet to a user's account (e.g. after scanning the pet's share QR or opening a share link).
+    The pet will appear in GET /api/v1/users/{user_id}/pets. Idempotent: if already linked, returns 200 with the pet.
+    """
+    pet = await pet_crud.get(db, id=pet_id)
+    if not pet:
+        raise HTTPException(status_code=404, detail="Pet not found")
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if pet in user.linked_pets:
+        return pet  # already linked
+    user.linked_pets.append(pet)
+    await db.flush()
+    await db.refresh(pet)
+    return pet
+
+
+@router.get("/{pet_id}/qr-code/share", response_class=Response)
+async def get_pet_qr_code_share(db: DbSession, pet_id: int) -> Response:
+    """
+    Generate a QR code that links to the share page where another user can add this pet to their account.
+    Scan the QR or open the link, then call POST /api/v1/pets/{pet_id}/add-to-account with your user_id.
+    """
+    pet = await pet_crud.get(db, id=pet_id)
+    if not pet:
+        raise HTTPException(status_code=404, detail="Pet not found")
+    settings = get_settings()
+    base = (settings.api_base_url or "http://localhost:8000").rstrip("/")
+    share_url = f"{base}/share/pet/{pet_id}"
+    logo_bytes: Optional[bytes] = None
+    result = await db.execute(
+        select(MediaFile)
+        .where(MediaFile.pet_id == pet_id, MediaFile.file_type == "image")
+        .order_by(MediaFile.id.desc())
+        .limit(1)
+    )
+    media = result.scalar_one_or_none()
+    if media:
+        try:
+            storage = get_storage()
+            logo_bytes = storage.read(media.storage_key)
+        except Exception:
+            pass
+    png_bytes = generate_qr_png(share_url, logo_bytes=logo_bytes)
+    return Response(content=png_bytes, media_type="image/png")
 
 
 @router.get("/{pet_id}/qr-code", response_class=Response)

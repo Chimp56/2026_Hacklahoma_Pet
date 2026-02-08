@@ -24,7 +24,8 @@ uv run run.py
 
 - API: http://localhost:8000  
 - Docs: http://localhost:8000/api/docs  
-- Health: http://localhost:8000/health  
+- Health: http://localhost:8000/api/health  
+- Access check (Postgres + Spaces): http://localhost:8000/api/health/access  
 
 ## Migrations (Alembic)
 
@@ -80,9 +81,11 @@ Use `POST /api/v1/gemini/analyze-pet?model=gemini` for images. Audio is supporte
 ## File storage
 
 - **Local** – `STORAGE_BACKEND=local`, files under `STORAGE_LOCAL_PATH` (default `./storage`).
-- **DigitalOcean Spaces** – set `STORAGE_BACKEND=digitalocean` and DO credentials (`DO_SPACES_*`). Same keys work for migration.
+- **DigitalOcean Spaces** – set `STORAGE_BACKEND=digitalocean` and DO credentials (`DO_SPACES_*`). For bucket `pet-storage` in sfo3 use `DO_SPACES_BUCKET=pet-storage`, `DO_SPACES_REGION=sfo3`, `DO_SPACES_ENDPOINT=https://sfo3.digitaloceanspaces.com` (bucket URL: https://pet-storage.sfo3.digitaloceanspaces.com).
 
-`POST /api/v1/media/upload` uploads images, audio, or video.
+`POST /api/v1/media/upload` uploads images, audio, video, or document (PDF).
+
+**Pet medical records (PDF):** `POST /api/v1/pets/{pet_id}/medical-records` uploads a PDF; `GET /api/v1/pets/{pet_id}/medical-records` lists records (newest first) for scrolling. Stored in the configured bucket.
 
 ## Notifications (Slack)
 

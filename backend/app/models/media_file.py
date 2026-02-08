@@ -15,13 +15,19 @@ class MediaFile(Base, TimestampMixin):
     id: Mapped[int] = mapped_column(primary_key=True, index=True, autoincrement=True)
     owner_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     pet_id: Mapped[int | None] = mapped_column(ForeignKey("pets.id", ondelete="SET NULL"), nullable=True, index=True)
-    file_type: Mapped[str] = mapped_column(String(32), nullable=False)  # image, audio, video
+    vet_visit_id: Mapped[int | None] = mapped_column(
+        ForeignKey("vet_visits.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    file_type: Mapped[str] = mapped_column(String(32), nullable=False)  # image, audio, video, document
     mime_type: Mapped[str] = mapped_column(String(128), nullable=False)
     storage_key: Mapped[str] = mapped_column(String(512), nullable=False, unique=True)  # relative path or DO key
     storage_backend: Mapped[str] = mapped_column(String(32), nullable=False, default="local")  # local, digitalocean
     file_size_bytes: Mapped[int | None] = mapped_column(nullable=True)
 
     owner: Mapped["User"] = relationship("User", back_populates="media_files")
+    vet_visit: Mapped["VetVisit | None"] = relationship(
+        "VetVisit", back_populates="medical_records", foreign_keys=[vet_visit_id]
+    )
     activities: Mapped[list["Activity"]] = relationship(
         "Activity", back_populates="media_file", foreign_keys="Activity.media_file_id"
     )

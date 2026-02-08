@@ -2,6 +2,7 @@
 
 import ssl
 from collections.abc import AsyncGenerator
+from typing import AsyncContextManager
 from typing import Any
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 

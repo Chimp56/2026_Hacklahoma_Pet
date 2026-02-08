@@ -9,9 +9,11 @@ description = "Pet API - FastAPI backend"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.23.0",
     "fastapi",
     "uvicorn[standard]>=0.27.0",
-    "pydantic>=2.5.0",
+    "pydantic[email]>=2.5.0",
     "pydantic-settings>=2.1.0",
     "sqlalchemy[asyncio]>=2.0.25",
     "asyncpg>=0.29.0",
@@ -28,6 +30,8 @@ dependencies = [
     "accelerate>=0.33.0",
     "streamlink>=8.1.2",
     "opencv-python-headless>=4.8.0",
+    "python-jose[cryptography]>=3.5.0",
+    "bcrypt>=5.0.0",
 ]
 
 [project.optional-dependencies]
@@ -49,3 +53,4 @@ src = ["app", "tests"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+pythonpath = ["."]
