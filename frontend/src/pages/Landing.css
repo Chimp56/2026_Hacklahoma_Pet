@@ -204,8 +204,8 @@
   position: absolute;
   inset: 0;
   margin: auto;
-  width: 220px;  /* overlay size */
-  height: 220px;
+  width: 380px;  /* overlay size */
+  height: 380px;
   object-fit: contain;
   pointer-events: none;
 
@@ -322,4 +322,151 @@
     width: 170px;
     height: 170px;
   }
+}
+
+/* =========================
+   Model visual section
+   ========================= */
+
+.lp__modelSection {
+  width: 100%;
+  background: #eef3ff;          /* soft light color (different from page bg) */
+  padding: 80px 0;              /* vertical breathing room */
+  display: flex;
+  justify-content: center;
+}
+
+.lp__modelImage {
+  width: 80%;                   /* responsive scaling */
+  max-width: 1200px;             /* 👈 THIS controls how big it gets */
+  height: auto;
+  display: block;
+  object-fit: contain;
+}
+
+/* Soft section variants */
+.lp__soft {
+  background: var(--soft);
+}
+
+.lp__softOrange {
+  background: #fff1e6; /* very light orange */
+}
+
+
+/* =========================
+   Community Preview Section
+   ========================= */
+
+.lp__communitySection {
+  background: #fff1e6; /* light warm orange */
+  padding: 90px 0;
+}
+
+.center {
+  text-align: center;
+}
+
+.communityScroller {
+  position: relative;
+  margin-top: 48px;
+}
+
+.communityTrack {
+  display: flex;
+  gap: 24px;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  padding: 20px 0;
+}
+
+.communityTrack::-webkit-scrollbar {
+  display: none;
+}
+
+.communityCard {
+  position: relative;
+  min-width: 340px;
+  height: 520px;
+  border-radius: 20px;
+  overflow: hidden;
+  background: #000;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+}
+
+.communityCard video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Overlay */
+.communityOverlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 14px;
+  background: linear-gradient(
+    to top,
+    rgba(0,0,0,0.65),
+    rgba(0,0,0,0.1)
+  );
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.communityOverlay .avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid white;
+}
+
+.communityOverlay .username {
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.communityOverlay .actions {
+  margin-left: auto;
+  font-size: 0.85rem;
+  opacity: 0.9;
+}
+
+/* Scroll buttons */
+.scrollBtn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: white;
+  border: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 18px;
+  box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+  z-index: 5;
+}
+
+.scrollBtn.left {
+  left: -20px;
+}
+
+.scrollBtn.right {
+  right: -20px;
+}
+
+.scrollBtn:hover {
+  transform: translateY(-50%) scale(1.05);
+}
+
+.center {
+  text-align: center;
+  margin-left: auto;
+  margin-right: auto;
 }
