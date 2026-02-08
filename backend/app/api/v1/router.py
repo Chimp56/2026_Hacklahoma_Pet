@@ -2,7 +2,8 @@
 
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import pets
+from app.api.v1.endpoints import gemini, pets
 
 api_router = APIRouter()
 api_router.include_router(pets.router)
+api_router.include_router(gemini.router)

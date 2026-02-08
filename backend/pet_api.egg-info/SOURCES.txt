@@ -7,6 +7,7 @@ app/api/__init__.py
 app/api/v1/__init__.py
 app/api/v1/router.py
 app/api/v1/endpoints/__init__.py
+app/api/v1/endpoints/gemini.py
 app/api/v1/endpoints/pets.py
 app/core/__init__.py
 app/core/dependencies.py
@@ -20,6 +21,7 @@ app/models/__init__.py
 app/models/base.py
 app/models/pet.py
 app/schemas/__init__.py
+app/schemas/gemini.py
 app/schemas/pet.py
 pet_api.egg-info/PKG-INFO
 pet_api.egg-info/SOURCES.txt

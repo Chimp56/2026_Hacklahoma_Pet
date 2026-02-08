@@ -33,6 +33,10 @@ class Settings(BaseSettings):
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
 
+    # Gemini
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-1.5-flash"
+
     # CORS
     cors_origins: str = "http://localhost:3000"
     cors_credentials: bool = True
