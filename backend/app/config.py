@@ -42,6 +42,8 @@ class Settings(BaseSettings):
     secret_key: str = "change-me-in-production"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
+    # When set (e.g. 1), all authenticated users see this user's data (pets, events, etc.). Use with seeded demo data.
+    demo_user_id: int | None = None
 
     # AI: Gemini (use GEMINI_API_KEY and optionally GEMINI_API_KEY2, GEMINI_API_KEY3 for rotation on rate limit)
     gemini_api_key: str = ""
@@ -78,7 +80,7 @@ class Settings(BaseSettings):
     notification_flag_events: str = "milestone,health_alert,anomaly"
 
     # API public URL (e.g. https://api.quantara.co). Used for pet share links so QR points to this host.
-    api_base_url: str = "http://localhost:8000"
+    api_base_url: str = "https://api.quantara.co"
     # QR code: base URL for pet profile links (e.g. https://myapp.com or http://localhost:3000)
     pet_profile_base_url: str = "http://localhost:3000"
     # Optional: qr-code-generator.com API token (if set, use their API with preset logo; else generate locally with pet photo or paw)

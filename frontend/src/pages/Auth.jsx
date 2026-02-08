@@ -1,9 +1,15 @@
-import React from 'react';
-import { Link } from "react-router-dom";
+import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
 export default function Auth() {
-  
-  // Pastel Color Palette
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const { loginMock } = useAuth();
+  const navigate = useNavigate();
+
   const colors = {
     bgGradient: 'linear-gradient(135deg, #E0E7FF 0%, #F3E8FF 100%)',
     primary: '#A78BFA', // Soft Purple
@@ -84,16 +90,37 @@ export default function Auth() {
           </p>
         </div>
 
-        {/* Login Fields */}
-        <div style={{ marginBottom: '20px' }}>
-          <input type="email" placeholder="Email Address" style={inputStyle} />
-          <input type="password" placeholder="Password" style={inputStyle} />
-        </div>
+        {error && (
+          <p style={{ marginBottom: "16px", padding: "12px", background: "#FEE2E2", color: "#B91C1C", borderRadius: "12px", fontSize: "14px" }}>
+            {error}
+          </p>
+        )}
 
-        {/* LOG IN -> HOME */}
-        <Link to="/home" style={buttonStyle}>
-          Log In
-        </Link>
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            setError("");
+            if (!email.trim() || !password) {
+              setError("Please enter email and password.");
+              return;
+            }
+            setLoading(true);
+            try {
+              loginMock();
+              navigate("/home", { replace: true });
+            } catch (err) {
+              setError(err?.detail || err?.message || "Login failed.");
+            } finally {
+              setLoading(false);
+            }
+          }}
+        >
+          <input type="email" placeholder="Email Address" value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} autoComplete="email" disabled={loading} />
+          <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} style={inputStyle} autoComplete="current-password" disabled={loading} />
+          <button type="submit" style={{ ...buttonStyle, cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.8 : 1 }} disabled={loading}>
+            {loading ? "Logging in…" : "Log In"}
+          </button>
+        </form>
 
         {/* CREATE PROFILE -> CREATE PROFILE PAGE */}
         <p style={{ marginTop: '30px', fontSize: '15px', color: colors.textMuted }}>

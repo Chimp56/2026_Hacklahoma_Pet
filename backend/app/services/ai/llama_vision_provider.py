@@ -13,12 +13,15 @@ IMAGE_PROMPT = """Analyze this image of an animal (pet or wildlife). Return ONLY
 
 {
   "species": [{"species": "<name>", "percentage": <0-100>}, ...],
-  "breeds": [{"breed": "<name>", "percentage": <0-100>}, ...]
+  "breeds": [{"breed": "<name>", "percentage": <0-100>}, ...],
+  "primary_breed_or_species": "<single display label>",
+  "match_score": <0-100>,
+  "description": "<1-3 sentences about traits and breed heritage>",
+  "tags": ["<trait1>", "<trait2>", "<trait3>"]
 }
 
 Rules:
-- species: list possible species with confidence percentages. If only one animal is clearly one species, use one entry with 100.
-- breeds: list possible breeds with confidence when applicable. If no breed concept, use [].
+- species and breeds: as above. primary_breed_or_species: one label. match_score: 0-100. description: short paragraph. tags: 3-6 trait words.
 - Return only the JSON object, nothing else."""
 
 # Lazy-loaded model and processor

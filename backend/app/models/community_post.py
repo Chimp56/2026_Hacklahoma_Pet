@@ -19,7 +19,7 @@ class CommunityPost(Base, TimestampMixin):
     title: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     user: Mapped["User"] = relationship("User", back_populates="posts")
-    # Optional: post_media many-to-many or JSON list of media_file_ids; keep simple with content + title
+    pet: Mapped["Pet | None"] = relationship("Pet", back_populates="community_posts")
 
     def __repr__(self) -> str:
         return f"<CommunityPost(id={self.id}, user_id={self.user_id})>"

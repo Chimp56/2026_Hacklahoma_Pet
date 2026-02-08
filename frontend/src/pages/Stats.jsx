@@ -1,6 +1,8 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Link } from "react-router-dom";
-import { usePet } from '../PetContext'; 
+import { usePet } from '../PetContext';
+import api from '../api/api';
+import PetAvatar from '../components/PetAvatar'; 
 
 export default function Stats() {
   // --- PET SWITCHER STATE & CONTEXT ---
@@ -24,12 +26,20 @@ export default function Stats() {
     return () => clearInterval(timer);
   }, []);
 
+  // --- ACTIVITY STATE LOGS (API: /api/v1/pets/{id}/activity-state-logs) ---
+  const [activityStateLogs, setActivityStateLogs] = useState([]);
+
   // --- MEDICAL RECORDS ---
   const fileInputRef = useRef(null);
-  const [medicalRecords, setMedicalRecords] = useState([
-    { id: 1, name: 'Vaccination_Record_2025.pdf', date: '2025-12-15', size: '1.2 MB' },
-    { id: 2, name: 'Annual_Checkup_Summary.docx', date: '2026-01-10', size: '450 KB' }
-  ]);
+  const mockMedicalRecords = [
+    { id: 'mock-1', name: 'Vaccination_Record_2025.pdf', date: '2025-12-15', size: '1.2 MB', source: 'mock' },
+    { id: 'mock-2', name: 'Annual_Checkup_Summary.docx', date: '2026-01-10', size: '450 KB', source: 'mock' }
+  ];
+  const [apiMedicalRecords, setApiMedicalRecords] = useState([]);
+  const [uploadError, setUploadError] = useState('');
+  const [viewingRecord, setViewingRecord] = useState(null);
+  const [viewerBlobUrl, setViewerBlobUrl] = useState(null);
+  const [loadingViewer, setLoadingViewer] = useState(false);
 
   // --- STYLE CONSTANTS ---
   const navbarHeight = '70px'; 
@@ -59,12 +69,37 @@ export default function Stats() {
   }) + ` | ${currentTime.toLocaleTimeString()}`;
 
   const activityMap = { 'Very Active': 100, 'Active': 80, 'Low Energy': 45, 'Lethargic': 15 };
-  
-  // Data reflects the last minute of activity + jitter on the final point
-  const rawData = useMemo(() => ({
-    sleep: [8, 8, 8, 8, 8, 8, activePet.stats.sleepHours],
-    activity: [...activePet.stats.activityData.slice(0, 6), activePet.stats.activityData[6] + jitter]
-  }), [activePet, jitter]);
+  /** Map UI status to API active (true = active, false = resting). */
+  const statusToActive = (status) => status === 'Very Active' || status === 'Active';
+
+  // Build 7-point activity series from API logs (60s ago ... Now). Logs are desc by start_time.
+  const activityFromApi = useMemo(() => {
+    if (!activityStateLogs?.length) return null;
+    const now = currentTime.getTime();
+    const bucketSeconds = [60, 50, 40, 30, 20, 10, 0];
+    const sorted = [...activityStateLogs].sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
+    return bucketSeconds.map((secAgo) => {
+      const bucketTime = new Date(now - secAgo * 1000).getTime();
+      const prior = sorted.filter((l) => new Date(l.start_time).getTime() <= bucketTime);
+      const latest = prior[prior.length - 1];
+      if (!latest) return 50;
+      return latest.active ? 80 : 20;
+    });
+  }, [activityStateLogs, currentTime]);
+
+  // Data: sleep from context; activity from API logs when available, else context + jitter on last point
+  const rawData = useMemo(() => {
+    const sleep = [8, 8, 8, 8, 8, 8, activePet?.stats?.sleepHours ?? 8];
+    let activity;
+    if (activityFromApi && activityFromApi.length === 7) {
+      activity = [...activityFromApi];
+      activity[6] = Math.min(100, Math.max(0, (activity[6] || 0) + jitter));
+    } else {
+      const fallback = activePet?.stats?.activityData ?? [8, 7, 9, 11, 8, 10, 8];
+      activity = [...fallback.slice(0, 6), (fallback[6] ?? 8) + jitter];
+    }
+    return { sleep, activity };
+  }, [activePet, jitter, activityFromApi]);
 
   const calculateWellness = (sleepHrs, activityPct) => {
     const sleepScore = Math.min((sleepHrs / 8) * 100, 100); 
@@ -80,6 +115,47 @@ export default function Stats() {
     return colors.danger;
   };
   const currentThemeColor = getThemeColor(avgWellness);
+
+  const allMedicalRecords = useMemo(() => {
+    const fromApi = (apiMedicalRecords || []).map((m) => {
+      const name = (m.storage_key && m.storage_key.split(/[/\\]/).pop()) || `Medical record #${m.id}`;
+      const date = m.created_at ? new Date(m.created_at).toISOString().split('T')[0] : '—';
+      const size = m.file_size_bytes != null ? (m.file_size_bytes < 1024 ? `${m.file_size_bytes} B` : (m.file_size_bytes / 1024).toFixed(1) + ' KB') : '—';
+      return { id: `api-${m.id}`, apiId: m.id, name, date, size, source: 'api', mimeType: m.mime_type || '' };
+    });
+    return [...fromApi, ...mockMedicalRecords];
+  }, [apiMedicalRecords, mockMedicalRecords]);
+
+  const fetchMedicalRecords = async () => {
+    if (!activePet?.id) return;
+    try {
+      const list = await api.pets.listMedicalRecords(activePet.id);
+      setApiMedicalRecords(list);
+    } catch (_) {
+      setApiMedicalRecords([]);
+    }
+  };
+
+  useEffect(() => {
+    fetchMedicalRecords();
+  }, [activePet?.id]);
+
+  const fetchActivityStateLogs = async () => {
+    if (!activePet?.id) return;
+    try {
+      const since = new Date(Date.now() - 2 * 60 * 1000);
+      const list = await api.pets.getActivityStateLogs(activePet.id, { since, limit: 200 });
+      setActivityStateLogs(Array.isArray(list) ? list : []);
+    } catch (_) {
+      setActivityStateLogs([]);
+    }
+  };
+
+  useEffect(() => {
+    fetchActivityStateLogs();
+    const interval = setInterval(fetchActivityStateLogs, 15000);
+    return () => clearInterval(interval);
+  }, [activePet?.id]);
 
   const GRAPH_SPACING = 60; 
   const GRAPH_PADDING = 20; 
@@ -100,33 +176,86 @@ export default function Stats() {
     setPets(updatedPets);
   };
 
-  const handleActivityUpdate = (status) => {
+  const handleActivityUpdate = async (status) => {
     setCurrentActivity(status);
     const numericValue = activityMap[status];
     const updatedPets = pets.map(p => {
       if (p.id === activePet.id) {
-        const newActivity = [...p.stats.activityData];
-        newActivity[6] = numericValue; 
+        const newActivity = [...(p.stats?.activityData ?? [8, 7, 9, 11, 8, 10, 8])];
+        newActivity[6] = numericValue;
         const updated = { ...p, stats: { ...p.stats, activityData: newActivity } };
-        setActivePet(updated); 
+        setActivePet(updated);
         return updated;
       }
       return p;
     });
     setPets(updatedPets);
+
+    if (activePet?.id) {
+      try {
+        await api.pets.createActivityStateLog(activePet.id, {
+          active: statusToActive(status),
+          start_time: new Date().toISOString(),
+        });
+        await fetchActivityStateLogs();
+      } catch (_) {}
+    }
   };
 
-  const handleFileUpload = (event) => {
+  // --- MEDICAL RECORDS: upload (API) and view ---
+  const ALLOWED_MEDICAL_MIMES = [
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'image/jpeg',
+    'image/png',
+  ];
+  const handleFileUpload = async (event) => {
     const file = event.target.files[0];
-    if (file) {
-      const newRecord = {
-        id: Date.now(),
-        name: file.name,
-        date: new Date().toISOString().split('T')[0],
-        size: (file.size / 1024).toFixed(1) + ' KB'
-      };
-      setMedicalRecords([newRecord, ...medicalRecords]);
+    event.target.value = '';
+    if (!file) return;
+    setUploadError('');
+    const mime = (file.type || '').toLowerCase();
+    if (!ALLOWED_MEDICAL_MIMES.includes(mime)) {
+      setUploadError('Allowed types: PDF, DOC, DOCX, JPG, PNG.');
+      return;
     }
+    if (!activePet?.id) {
+      setUploadError('Please select a pet first.');
+      return;
+    }
+    try {
+      await api.pets.uploadMedicalRecord(activePet.id, file);
+      await fetchMedicalRecords();
+    } catch (e) {
+      setUploadError(e?.message || 'Upload failed.');
+    }
+  };
+
+  const handleViewRecord = async (record) => {
+    if (record.source === 'mock') {
+      setViewingRecord({ type: 'mock', record });
+      return;
+    }
+    if (record.source === 'api' && record.apiId != null && activePet?.id) {
+      setLoadingViewer(true);
+      setViewingRecord({ type: 'api', record });
+      setViewerBlobUrl(null);
+      try {
+        const blob = await api.pets.getMedicalRecordFile(activePet.id, record.apiId);
+        const url = URL.createObjectURL(blob);
+        setViewerBlobUrl(url);
+      } catch (_) {
+        setViewerBlobUrl('');
+      }
+      setLoadingViewer(false);
+    }
+  };
+
+  const closeViewer = () => {
+    if (viewerBlobUrl) URL.revokeObjectURL(viewerBlobUrl);
+    setViewerBlobUrl(null);
+    setViewingRecord(null);
   };
 
   return (
@@ -164,9 +293,11 @@ export default function Stats() {
         </button>
 
         <div style={{ marginBottom: '25px', position: 'relative' }}>
-          <label style={{ fontSize: '10px', fontWeight: '900', opacity: 0.7, textTransform: 'uppercase', display: 'block', marginBottom: '8px' }}>Active Profile</label>
-          <div onClick={() => setIsDropdownOpen(!isDropdownOpen)} style={{ display: 'flex', alignItems: 'center', gap: '12px', background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryDark} 100%)`, padding: '12px 16px', borderRadius: '20px', cursor: 'pointer', color: 'white', boxShadow: '0 8px 20px rgba(167, 139, 250, 0.3)' }}>
-            <span style={{ fontSize: '24px' }}>{activePet?.image || '🐾'}</span>
+          <label style={{ fontSize: '10px', fontWeight: '900', opacity: 0.7, letterSpacing: '1.2px', textTransform: 'uppercase', display: 'block', marginBottom: '8px', color: colors.textMain }}>
+            Active Profile
+          </label>
+          <div onClick={() => setIsDropdownOpen(!isDropdownOpen)} style={{ display: 'flex', alignItems: 'center', gap: '12px', background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryDark} 100%)`, padding: '12px 16px', borderRadius: '20px', cursor: 'pointer', boxShadow: '0 8px 20px rgba(167, 139, 250, 0.3)', color: 'white' }}>
+            <PetAvatar pet={activePet} size={28} />
             <span style={{ fontWeight: '800', flex: 1 }}>{activePet?.name}</span>
             <span>{isDropdownOpen ? '▲' : '▼'}</span>
           </div>
@@ -174,8 +305,9 @@ export default function Stats() {
             <div style={{ position: 'absolute', top: '110%', left: 0, right: 0, backgroundColor: 'white', borderRadius: '20px', boxShadow: '0 15px 35px rgba(0,0,0,0.1)', padding: '8px', zIndex: 1000 }}>
               {pets.map(pet => (
                 <div key={pet.id} onClick={() => { setActivePet(pet); setIsDropdownOpen(false); }} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', borderRadius: '12px', cursor: 'pointer', backgroundColor: activePet?.id === pet.id ? colors.accent : 'transparent' }}>
-                  <span>{pet.image}</span>
-                  <span style={{ fontWeight: '700' }}>{pet.name}</span>
+                  <PetAvatar pet={pet} size={24} />
+                  <span style={{ fontWeight: '700', color: colors.textMain, flex: 1 }}>{pet.name}</span>
+                  {activePet?.id === pet.id && <span style={{ color: colors.primary }}>✓</span>}
                 </div>
               ))}
             </div>
@@ -248,7 +380,7 @@ export default function Stats() {
           </div>
           <div style={{ backgroundColor: 'white', padding: '28px', borderRadius: '28px', border: `1px solid ${colors.border}` }}>
             <h4 style={{ margin: 0 }}>Rest Index</h4>
-            <input type="range" min="0" max="15" step="0.5" value={activePet.stats.sleepHours} onChange={(e) => handleSleepUpdate(e.target.value)} style={{ width: '100%', marginTop: '20px', accentColor: colors.primary }} />
+            <input type="range" min="0" max="15" step="0.5" value={activePet?.stats?.sleepHours ?? 8} onChange={(e) => handleSleepUpdate(e.target.value)} style={{ width: '100%', marginTop: '20px', accentColor: colors.primary }} />
           </div>
         </div>
 
@@ -264,24 +396,120 @@ export default function Stats() {
         {/* --- MEDICAL RECORDS --- */}
         <div style={{ backgroundColor: 'white', padding: '35px', borderRadius: '28px', border: `1px solid ${colors.border}`, marginBottom: '40px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
-            <h4 style={{ margin: 0, fontSize: '20px', fontWeight: '800' }}>Medical Records</h4>
-            <button onClick={() => fileInputRef.current.click()} style={{ padding: '10px 20px', backgroundColor: colors.primary, color: 'white', border: 'none', borderRadius: '12px', fontWeight: '700', cursor: 'pointer' }}>+ Upload Record</button>
-            <input type="file" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileUpload} />
+            <div>
+              <h4 style={{ margin: 0, fontSize: '20px', fontWeight: '800', color: colors.textMain }}>Medical Records</h4>
+              <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: colors.textMuted }}>Centralized history for {activePet?.name}</p>
+            </div>
+            <button 
+              onClick={() => fileInputRef.current.click()}
+              style={{ padding: '10px 20px', backgroundColor: colors.primary, color: 'white', border: 'none', borderRadius: '12px', fontWeight: '700', cursor: 'pointer', boxShadow: '0 4px 12px rgba(167, 139, 250, 0.3)' }}
+            >
+              + Upload Record
+            </button>
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              style={{ display: 'none' }} 
+              onChange={handleFileUpload} 
+              accept=".pdf,application/pdf"
+            />
           </div>
+          {uploadError && (
+            <p style={{ margin: '0 0 16px 0', color: colors.danger, fontSize: '13px', fontWeight: '600' }}>{uploadError}</p>
+          )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {medicalRecords.map(record => (
-              <div key={record.id} style={{ display: 'flex', alignItems: 'center', padding: '16px', borderRadius: '16px', border: `1px solid ${colors.border}`, backgroundColor: '#F9FAFB' }}>
-                <div style={{ fontSize: '24px', marginRight: '16px' }}>📄</div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: '700' }}>{record.name}</div>
-                  <div style={{ fontSize: '12px', color: colors.textMuted }}>{record.date} • {record.size}</div>
-                </div>
-                <button style={{ background: 'none', border: 'none', color: colors.primary, fontWeight: '700', cursor: 'pointer' }}>View</button>
-              </div>
-            ))}
+            {allMedicalRecords.length > 0
+              ? allMedicalRecords.map(record => (
+                  <div key={record.id} style={{ display: 'flex', alignItems: 'center', padding: '16px', borderRadius: '16px', border: `1px solid ${colors.border}`, backgroundColor: '#F9FAFB' }}>
+                    <div style={{ fontSize: '24px', marginRight: '16px' }}>📄</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: '700', color: colors.textMain, fontSize: '14px' }}>{record.name}</div>
+                      <div style={{ fontSize: '12px', color: colors.textMuted }}>Uploaded on {record.date} • {record.size}{record.source === 'api' ? ' • Saved' : ''}</div>
+                    </div>
+                    <button type="button" onClick={() => handleViewRecord(record)} style={{ background: 'none', border: 'none', color: colors.primary, fontWeight: '700', cursor: 'pointer', fontSize: '13px' }}>View</button>
+                  </div>
+                ))
+              : null}
           </div>
         </div>
       </main>
+
+      {/* Viewer modal: scrollable PDF for API records (portal-style, outside main) */}
+      {viewingRecord && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 2000,
+            background: 'rgba(0,0,0,0.6)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '24px',
+            boxSizing: 'border-box',
+          }}
+          onClick={(e) => e.target === e.currentTarget && closeViewer()}
+        >
+          <div
+            style={{
+              backgroundColor: 'white',
+              borderRadius: '16px',
+              width: '100%',
+              maxWidth: '900px',
+              maxHeight: '90vh',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+              overflow: 'hidden',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: `1px solid ${colors.border}` }}>
+              <span style={{ fontWeight: '700', color: colors.textMain }}>{viewingRecord.record?.name || 'Medical record'}</span>
+              <button type="button" onClick={closeViewer} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: colors.textMuted, padding: '4px 8px' }}>✕</button>
+            </div>
+            <div style={{ flex: 1, overflow: 'auto', minHeight: '70vh' }}>
+              {viewingRecord.type === 'mock' && (
+                <p style={{ padding: '40px', color: colors.textMuted, textAlign: 'center' }}>Preview not available for this sample record. Upload a PDF to view it here.</p>
+              )}
+              {viewingRecord.type === 'api' && loadingViewer && (
+                <p style={{ padding: '40px', color: colors.textMuted, textAlign: 'center' }}>Loading…</p>
+              )}
+              {viewingRecord.type === 'api' && !loadingViewer && viewerBlobUrl && (() => {
+                const mime = (viewingRecord.record?.mimeType || '').toLowerCase();
+                const isImage = mime === 'image/jpeg' || mime === 'image/png';
+                const isPdf = mime === 'application/pdf';
+                if (isImage) {
+                  return (
+                    <div style={{ padding: '20px', overflow: 'auto', maxHeight: '85vh', textAlign: 'center' }}>
+                      <img src={viewerBlobUrl} alt={viewingRecord.record?.name} style={{ maxWidth: '100%', height: 'auto', display: 'block', margin: '0 auto' }} />
+                    </div>
+                  );
+                }
+                if (isPdf) {
+                  return (
+                    <iframe
+                      title="Medical record"
+                      src={viewerBlobUrl}
+                      style={{ width: '100%', height: '85vh', minHeight: '600px', border: 'none' }}
+                    />
+                  );
+                }
+                return (
+                  <div style={{ padding: '40px', textAlign: 'center', color: colors.textMuted }}>
+                    <p style={{ marginBottom: '16px' }}>Preview not available for this file type. You can download it to open in another app.</p>
+                    <a href={viewerBlobUrl} download={viewingRecord.record?.name || 'medical-record'} style={{ color: colors.primary, fontWeight: '700' }}>Download file</a>
+                  </div>
+                );
+              })()}
+              {viewingRecord.type === 'api' && !loadingViewer && !viewerBlobUrl && (
+                <p style={{ padding: '40px', color: colors.danger, textAlign: 'center' }}>Could not load the file.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <style>{`
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0; } 100% { opacity: 1; } }

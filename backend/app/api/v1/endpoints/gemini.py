@@ -2,7 +2,13 @@
 
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 
-from app.schemas.gemini import GenerateTextRequest, PetAnalysisResponse
+from app.schemas.gemini import (
+    ActivityAnalysisResponse,
+    AudioAnalysisResponse,
+    GenerateTextRequest,
+    PetAnalysisResponse,
+    PetVideoAnalysisResponse,
+)
 from app.services.ai.llama_provider import LlamaAnalyzer
 from app.services.ai.registry import MODEL_IDS, get_analyzer
 
@@ -10,7 +16,9 @@ router = APIRouter(prefix="/gemini", tags=["ai"])
 
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 ALLOWED_AUDIO_TYPES = {"audio/wav", "audio/wave", "audio/mpeg", "audio/mp3", "audio/webm"}
+ALLOWED_VIDEO_TYPES = {"video/mp4", "video/webm", "video/quicktime"}
 MAX_FILE_SIZE = 20 * 1024 * 1024  # 20 MB
+MAX_VIDEO_SIZE = 100 * 1024 * 1024  # 100 MB for video
 
 
 @router.get("/models", response_model=list[tuple[str, str]])
@@ -48,7 +56,7 @@ async def analyze_pet_image(
         raise HTTPException(status_code=400, detail=str(e)) from e
 
     try:
-        result = await analyzer.analyze_image(body, content_type)
+        raw = await analyzer.analyze_image(body, content_type)
     except NotImplementedError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except ValueError as e:
@@ -56,15 +64,116 @@ async def analyze_pet_image(
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"AI provider error: {e!s}") from e
 
-    return PetAnalysisResponse.model_validate(result)
+    # Map raw dict to PetAnalysisResponse (species/breeds + primary_breed_or_species, match_score, description, tags)
+    species = raw.get("species") or []
+    breeds = raw.get("breeds") or []
+    primary = (raw.get("primary_breed_or_species") or raw.get("primary_label") or "").strip()
+    match_score = raw.get("match_score")
+    if match_score is not None:
+        match_score = max(0, min(100, int(match_score)))
+    else:
+        # Derive from first breed or species percentage
+        if breeds and isinstance(breeds[0], dict):
+            match_score = int(breeds[0].get("percentage", 0) or 0)
+        elif species and isinstance(species[0], dict):
+            match_score = int(species[0].get("percentage", 0) or 0)
+        else:
+            match_score = 0
+    if not primary and breeds and isinstance(breeds[0], dict):
+        primary = breeds[0].get("breed") or breeds[0].get("name") or ""
+    if not primary and species and isinstance(species[0], dict):
+        primary = species[0].get("species") or species[0].get("name") or ""
+
+    description = (raw.get("description") or "").strip()
+    tags_raw = raw.get("tags")
+    tags = [str(t).strip() for t in tags_raw] if isinstance(tags_raw, list) else []
+
+    # Normalize breeds: ensure list of {breed, percentage}, sort by percentage desc
+    def _norm_breed(b: dict) -> dict:
+        if not isinstance(b, dict):
+            return {"breed": "", "percentage": 0.0}
+        name = b.get("breed") or b.get("name") or ""
+        pct = b.get("percentage")
+        pct = float(pct) if pct is not None else 0.0
+        pct = max(0.0, min(100.0, pct))
+        return {"breed": name, "percentage": pct}
+
+    breeds_normalized = sorted(
+        [_norm_breed(b) for b in breeds],
+        key=lambda x: x["percentage"],
+        reverse=True,
+    )
+    # Consider purebred when single breed at 98%+ (or 100%)
+    is_purebred = (
+        len(breeds_normalized) == 1
+        and breeds_normalized[0].get("percentage", 0) >= 98.0
+    )
+
+    return PetAnalysisResponse.model_validate({
+        "species": species,
+        "breeds": breeds_normalized,
+        "primary_breed_or_species": primary,
+        "match_score": match_score,
+        "description": description,
+        "tags": tags,
+        "is_purebred": is_purebred,
+    })
 
 
-@router.post("/analyze-audio", response_model=dict)
+def _normalize_audio_response(raw: dict) -> AudioAnalysisResponse:
+    """Map provider dict to stable AudioAnalysisResponse (mood, confidence 0-1, species, breeds)."""
+    mood = raw.get("mood") or raw.get("description") or ""
+    if not isinstance(mood, str):
+        mood = str(mood) if mood is not None else ""
+    conf = raw.get("confidence")
+    if conf is None:
+        # Fallback: use first species percentage as 0-1
+        species_list = raw.get("species") or []
+        if species_list and isinstance(species_list[0], dict):
+            pct = species_list[0].get("percentage", 0)
+            conf = float(pct) / 100.0 if pct is not None else 0.0
+        else:
+            conf = 0.0
+    else:
+        conf = float(conf)
+        if conf > 1.0:
+            conf = conf / 100.0
+    conf = max(0.0, min(1.0, conf))
+    species = raw.get("species") or []
+    breeds = raw.get("breeds") or []
+    # Normalize to {species/breed, percentage}
+    def norm_guess(item: dict, name_key: str) -> dict:
+        if isinstance(item, dict):
+            name = item.get(name_key) or item.get("name") or ""
+            pct = item.get("percentage")
+            if pct is not None:
+                pct = float(pct)
+            else:
+                pct = 0.0
+            return {"species": name, "percentage": pct} if name_key == "species" else {"breed": name, "percentage": pct}
+        return {"species": "", "percentage": 0.0} if name_key == "species" else {"breed": "", "percentage": 0.0}
+    species_guesses = [norm_guess(s, "species") for s in species if isinstance(s, dict)]
+    breed_guesses = [norm_guess(b, "breed") for b in breeds if isinstance(b, dict)]
+    description = raw.get("description")
+    if isinstance(description, str):
+        pass
+    else:
+        description = None
+    return AudioAnalysisResponse(
+        mood=mood,
+        confidence=conf,
+        species=species_guesses,
+        breeds=breed_guesses,
+        description=description,
+    )
+
+
+@router.post("/analyze-audio", response_model=AudioAnalysisResponse)
 async def analyze_pet_audio(
     file: UploadFile = File(..., description="Audio of pet (e.g. barking)"),
     model: str = Query("gemini", description="Model id (audio supported: gemini only)"),
-) -> dict:
-    """Analyze audio; returns species/breeds/description. Only Gemini supports audio."""
+) -> AudioAnalysisResponse:
+    """Analyze audio; returns normalized mood, confidence (0-1), species/breeds, description. Only Gemini supports audio."""
     content_type = file.content_type or ""
     if content_type not in ALLOWED_AUDIO_TYPES and not file.filename:
         raise HTTPException(
@@ -89,7 +198,135 @@ async def analyze_pet_audio(
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"AI provider error: {e!s}") from e
 
-    return result
+    return _normalize_audio_response(result)
+
+
+def _normalize_video_response(raw: dict) -> PetVideoAnalysisResponse:
+    """Map provider dict to PetVideoAnalysisResponse."""
+    activity = raw.get("activity_summary", "")
+    if not isinstance(activity, str):
+        activity = str(activity) if activity is not None else ""
+
+    def _float_bounded(key: str, default: float = 0.0, lo: float = 0.0, hi: float = 24.0) -> float:
+        v = raw.get(key)
+        if v is None:
+            return default
+        try:
+            v = float(v)
+        except (TypeError, ValueError):
+            return default
+        return max(lo, min(hi, v))
+
+    hours_slept = _float_bounded("hours_slept_per_day")
+    hours_active = _float_bounded("hours_active")
+    eating = raw.get("eating_habits", "")
+    if not isinstance(eating, str):
+        eating = str(eating) if eating is not None else ""
+    return PetVideoAnalysisResponse(
+        activity_summary=activity.strip(),
+        hours_slept_per_day=hours_slept,
+        hours_active=hours_active,
+        eating_habits=eating.strip(),
+    )
+
+
+def _normalize_activity_response(raw: dict) -> ActivityAnalysisResponse:
+    """Map provider dict to ActivityAnalysisResponse (sleep_minutes, meals_count, activity)."""
+    sleep = raw.get("sleep_minutes")
+    if sleep is None:
+        sleep = raw.get("sleep", 0)
+    try:
+        sleep = int(sleep)
+    except (TypeError, ValueError):
+        sleep = 0
+    sleep = max(0, sleep)
+
+    meals = raw.get("meals_count")
+    if meals is None:
+        meals = raw.get("meals", 0)
+    try:
+        meals = int(meals)
+    except (TypeError, ValueError):
+        meals = 0
+    meals = max(0, meals)
+
+    activity = raw.get("activity", "Unknown")
+    if not isinstance(activity, str):
+        activity = str(activity) if activity is not None else "Unknown"
+    activity = activity.strip() or "Unknown"
+    return ActivityAnalysisResponse(sleep_minutes=sleep, meals_count=meals, activity=activity)
+
+
+@router.post("/analyze-activity", response_model=ActivityAnalysisResponse)
+async def analyze_activity(
+    file: UploadFile = File(..., description="Image (or single frame) of pet for activity inference"),
+    model: str = Query("gemini", description="Model id (activity analysis supported: gemini only)"),
+) -> ActivityAnalysisResponse:
+    """
+    Infer activity from an image: estimated sleep minutes, meals count, and activity level.
+    For Monitor/Camera page. Only Gemini supports this; use model=gemini.
+    """
+    content_type = file.content_type or ""
+    if content_type not in ALLOWED_IMAGE_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid file type. Allowed: {', '.join(ALLOWED_IMAGE_TYPES)}",
+        )
+    body = await file.read()
+    if len(body) > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File too large. Max size: {MAX_FILE_SIZE // (1024*1024)} MB",
+        )
+    try:
+        analyzer = get_analyzer(model)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    try:
+        result = await analyzer.analyze_activity(body, content_type)
+    except NotImplementedError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except ValueError as e:
+        raise HTTPException(status_code=503, detail=str(e)) from e
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"AI provider error: {e!s}") from e
+    return _normalize_activity_response(result)
+
+
+@router.post("/analyze-pet-video", response_model=PetVideoAnalysisResponse)
+async def analyze_pet_video(
+    file: UploadFile = File(..., description="Video of pet to analyze (activity, sleep, eating)"),
+    model: str = Query("gemini", description="Model id (video analysis supported: gemini only)"),
+) -> PetVideoAnalysisResponse:
+    """
+    Analyze a pet video with Gemini. Returns activity summary (what they did), estimated hours
+    slept per day, hours active, and eating habits. Only Gemini supports video; use model=gemini.
+    """
+    content_type = file.content_type or ""
+    if content_type not in ALLOWED_VIDEO_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid file type. Allowed: {', '.join(ALLOWED_VIDEO_TYPES)}",
+        )
+    body = await file.read()
+    if len(body) > MAX_VIDEO_SIZE:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Video too large. Max size: {MAX_VIDEO_SIZE // (1024*1024)} MB",
+        )
+    try:
+        analyzer = get_analyzer(model)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    try:
+        result = await analyzer.analyze_pet_video(body, content_type)
+    except NotImplementedError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except ValueError as e:
+        raise HTTPException(status_code=503, detail=str(e)) from e
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"AI provider error: {e!s}") from e
+    return _normalize_video_response(result)
 
 
 @router.post("/generate-text", response_model=dict)

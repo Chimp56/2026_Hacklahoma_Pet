@@ -25,7 +25,7 @@ class GenerateTextRequest(BaseModel):
 
 
 class PetAnalysisResponse(BaseModel):
-    """Structured response from Gemini pet image analysis."""
+    """Structured response from Gemini pet image analysis (breed finder)."""
 
     species: list[SpeciesGuess] = Field(
         default_factory=list,
@@ -34,4 +34,89 @@ class PetAnalysisResponse(BaseModel):
     breeds: list[BreedGuess] = Field(
         default_factory=list,
         description="Breed predictions with percentages when applicable (e.g. Golden Retriever 80%)",
+    )
+    primary_breed_or_species: str = Field(
+        default="",
+        description="Primary label for display (e.g. Golden Retriever Mix, Labrador)",
+    )
+    match_score: int = Field(
+        default=0,
+        ge=0,
+        le=100,
+        description="Confidence match score 0-100 (e.g. 94 for 94% MATCH)",
+    )
+    description: str = Field(
+        default="",
+        description="Short paragraph describing the pet's characteristics and breed heritage",
+    )
+    tags: list[str] = Field(
+        default_factory=list,
+        description="Trait tags (e.g. Friendly, Energetic, Intelligent)",
+    )
+    is_purebred: bool = Field(
+        default=False,
+        description="True when a single breed is identified with high confidence (e.g. one breed at 98%+). When False, show breed percentage breakdown.",
+    )
+
+
+class ActivityAnalysisResponse(BaseModel):
+    """Response from monitor/camera image analysis (inferred activity)."""
+
+    sleep_minutes: int = Field(0, ge=0, description="Estimated sleep/rest minutes")
+    meals_count: int = Field(0, ge=0, description="Estimated number of meals")
+    activity: str = Field(
+        default="Unknown",
+        description="Activity level: Low, Normal, High, or Unknown",
+    )
+
+
+class PetVideoAnalysisResponse(BaseModel):
+    """Structured response from Gemini pet video analysis (activity summary, sleep, active time, eating)."""
+
+    activity_summary: str = Field(
+        default="",
+        description="Summary of what the pet did in the video (activities, behaviors)",
+    )
+    hours_slept_per_day: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=24.0,
+        description="Estimated hours of sleep per day (0–24)",
+    )
+    hours_active: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=24.0,
+        description="Estimated hours active per day (0–24)",
+    )
+    eating_habits: str = Field(
+        default="",
+        description="Observed or inferred eating habits (e.g. meal times, appetite, grazing)",
+    )
+
+
+class AudioAnalysisResponse(BaseModel):
+    """Normalized response from pet audio analysis (e.g. barking, meowing)."""
+
+    mood: str = Field(
+        default="",
+        description="Inferred mood or state (e.g. excited, anxious, playful, distressed)",
+    )
+    confidence: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="Confidence in the analysis (0.0–1.0)",
+    )
+    species: list[SpeciesGuess] = Field(
+        default_factory=list,
+        description="Species guesses from the sound",
+    )
+    breeds: list[BreedGuess] = Field(
+        default_factory=list,
+        description="Breed guesses when applicable",
+    )
+    description: str | None = Field(
+        default=None,
+        description="Short free-form description of the sound",
     )

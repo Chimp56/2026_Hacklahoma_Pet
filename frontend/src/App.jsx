@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Routes, Route } from "react-router-dom";
-import Navbar from "./components/Navbar"; 
+import Navbar from "./components/Navbar";
 
 // 1. Import the PetProvider from your contexts folder
 import { PetProvider } from './PetContext'; // Double check this path!
@@ -43,24 +43,24 @@ export default function App() {
     /* --- WRAP EVERYTHING IN PETPROVIDER --- */
     <PetProvider>
       <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
-        <Navbar /> 
+        <Navbar />
 
         {/* Main Content Area */}
         <div style={{ flex: 1 }}>
           <Routes>
-            <Route 
-              path="/calendar" 
-              element={<Calendar events={events} setEvents={setEvents} />} 
+            <Route
+              path="/calendar"
+              element={<Calendar events={events} setEvents={setEvents} />}
             />
 
-            <Route 
-              path="/home" 
-              element={<Home events={events} petStats={petStats} alerts={alerts} />} 
+            <Route
+              path="/home"
+              element={<Home events={events} petStats={petStats} alerts={alerts} />}
             />
 
-            <Route 
-              path="/stats" 
-              element={<Stats petStats={petStats} setPetStats={setPetStats} />} 
+            <Route
+              path="/stats"
+              element={<Stats petStats={petStats} setPetStats={setPetStats} />}
             />
 
             <Route path="/moniter" element={<Moniter alerts={alerts} setAlerts={setAlerts} />} />

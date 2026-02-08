@@ -1,16 +1,49 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from "react-router-dom";
 import { usePet } from '../PetContext';
+import api, { pets as petsApi } from '../api/api';
+import PetAvatar from '../components/PetAvatar';
+
+const LIVE_MONITOR_CHANNEL = 'speedingchimp';
 
 export default function Home({ events = [], petStats = {} }) {
-  const { pets, activePet, setActivePet } = usePet();
+  const { pets, setPets, activePet, setActivePet } = usePet();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(true); // Added: Sidebar state
+  const [streamRefreshKey, setStreamRefreshKey] = useState(0);
+  const [streamFrameError, setStreamFrameError] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoError, setPhotoError] = useState('');
+  const fileInputRef = useRef(null);
   const navigate = useNavigate();
+
+  const profilePhotoUrl = activePet?.profile_photo_url || (typeof activePet?.image === 'string' && activePet.image.startsWith('http') ? activePet.image : null);
+
+  const handleProfilePhotoChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !activePet?.id) return;
+    if (!file.type.startsWith('image/')) {
+      setPhotoError('Please choose an image (JPEG, PNG, WebP, or GIF).');
+      return;
+    }
+    setPhotoError('');
+    setPhotoUploading(true);
+    petsApi.uploadProfilePicture(activePet.id, file)
+      .then((data) => {
+        const url = data.profile_picture_url || data.url;
+        if (url) {
+          setPets(prev => prev.map(p => p.id === activePet.id ? { ...p, image: url, profile_photo_url: url } : p));
+          setActivePet(prev => prev?.id === activePet.id ? { ...prev, image: url, profile_photo_url: url } : prev);
+        }
+      })
+      .catch((err) => setPhotoError(err.message || err.detail || 'Upload failed.'))
+      .finally(() => { setPhotoUploading(false); e.target.value = ''; });
+  };
 
   const navbarHeight = '70px';
   const petName = activePet?.name || "Buddy";
-  
+
+  // Get real-time day index (0 is Sunday, 6 is Saturday)
   const realToday = new Date();
   const currentDayIndex = realToday.getDay();
 
@@ -39,10 +72,18 @@ export default function Home({ events = [], petStats = {} }) {
   const upcomingEvents = events
     .filter(ev => {
       const evDate = new Date(ev.year, ev.month, ev.day);
-      return evDate >= new Date(2026, 1, 7); 
+      return evDate >= new Date(2026, 1, 7);
     })
     .sort((a, b) => new Date(a.year, a.month, a.day) - new Date(b.year, b.month, b.day))
     .slice(0, 3);
+
+  /** Live monitor thumbnail from API /stream/current-frame (refreshed periodically) */
+  const streamFrameUrl = `${api.getBaseUrl()}/stream/current-frame?channel=${encodeURIComponent(LIVE_MONITOR_CHANNEL)}&_=${streamRefreshKey}`;
+
+  useEffect(() => {
+    const interval = setInterval(() => setStreamRefreshKey((k) => k + 1), 15000);
+    return () => clearInterval(interval);
+  }, []);
 
   const pageWrapperStyle = {
     display: 'flex', height: '100vh', width: '100vw', background: colors.bgGradient,
@@ -112,7 +153,7 @@ export default function Home({ events = [], petStats = {} }) {
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
             style={{ display: 'flex', alignItems: 'center', gap: '12px', background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryDark} 100%)`, padding: '12px 16px', borderRadius: '20px', cursor: 'pointer', boxShadow: '0 8px 20px rgba(167, 139, 250, 0.3)', color: 'white', transition: 'all 0.2s ease' }}
           >
-            <span style={{ fontSize: '24px' }}>{activePet?.image || '🐾'}</span>
+            <PetAvatar pet={activePet} size={28} style={{ background: 'rgba(255,255,255,0.2)' }} />
             <span style={{ fontWeight: '800', flex: 1 }}>{activePet?.name}</span>
             <span style={{ fontSize: '10px', transform: isDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.3s ease' }}>▼</span>
           </div>
@@ -125,7 +166,7 @@ export default function Home({ events = [], petStats = {} }) {
                   onClick={() => { setActivePet(pet); setIsDropdownOpen(false); }}
                   style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', borderRadius: '12px', cursor: 'pointer', backgroundColor: activePet?.id === pet.id ? colors.accent : 'transparent', transition: 'background 0.2s ease' }}
                 >
-                  <span style={{ fontSize: '20px' }}>{pet.image}</span>
+                  <PetAvatar pet={pet} size={24} />
                   <span style={{ fontWeight: '700', color: colors.textMain, flex: 1 }}>{pet.name}</span>
                   {activePet?.id === pet.id && <span style={{ color: colors.primary, fontWeight: 'bold' }}>✓</span>}
                 </div>
@@ -154,7 +195,12 @@ export default function Home({ events = [], petStats = {} }) {
       <main style={mainContentStyle}>
         <header style={{ marginBottom: '40px' }}>
           <h1 style={{ margin: 0, color: colors.textMain, fontSize: '36px', fontWeight: '900' }}>
-            Welcome back, <span style={{ color: colors.primary }}>{petName}</span>! {activePet?.image || '🐾'}
+            Welcome back, <span style={{ color: colors.primary }}>{petName}</span>!{' '}
+            {profilePhotoUrl ? (
+              <img src={profilePhotoUrl} alt="" style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', verticalAlign: 'middle' }} />
+            ) : (
+              (activePet?.image && !activePet.image.startsWith?.('http') ? activePet.image : '🐾')
+            )}
           </h1>
           <p style={{ color: colors.textMuted, fontSize: '18px', marginTop: '8px' }}>
             Dashboard Synced: Tracking live sleep for today.
@@ -163,14 +209,49 @@ export default function Home({ events = [], petStats = {} }) {
 
         {/* PET PROFILE SECTION */}
         <div style={{ ...cardStyle, marginBottom: '40px', display: 'flex', alignItems: 'center', gap: '30px', position: 'relative' }}>
-          <div 
-            onClick={() => navigate('/register-pet', { state: { petToEdit: activePet } })}
-            style={{ fontSize: '60px', backgroundColor: colors.accent, padding: '20px', borderRadius: '50%', boxShadow: '0 4px 15px rgba(0,0,0,0.05)', cursor: 'pointer', border: `2px solid transparent`, transition: 'all 0.2s ease', position: 'relative' }}
-            onMouseOver={(e) => e.currentTarget.style.borderColor = colors.primary}
-            onMouseOut={(e) => e.currentTarget.style.borderColor = 'transparent'}
-          >
-            {activePet?.image || '🐾'}
-            <div style={{ position: 'absolute', bottom: '5px', right: '5px', background: colors.white, borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', boxShadow: '0 2px 5px rgba(0,0,0,0.1)', border: `1px solid ${colors.border}` }}>✏️</div>
+          <input
+            type="file"
+            ref={fileInputRef}
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            onChange={handleProfilePhotoChange}
+            style={{ display: 'none' }}
+          />
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+            <div
+              style={{
+                width: '100px',
+                height: '100px',
+                borderRadius: '50%',
+                backgroundColor: colors.accent,
+                boxShadow: '0 4px 15px rgba(0,0,0,0.05)',
+                border: `2px solid transparent`,
+                overflow: 'hidden',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                position: 'relative',
+              }}
+            >
+            {profilePhotoUrl ? (
+              <img src={profilePhotoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+              <span style={{ fontSize: '48px' }}>{activePet?.image || '🐾'}</span>
+            )}
+              <div
+                onClick={() => navigate('/register-pet', { state: { petToEdit: activePet } })}
+                style={{ position: 'absolute', bottom: '2px', right: '2px', background: colors.white, borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', boxShadow: '0 2px 5px rgba(0,0,0,0.1)', border: `1px solid ${colors.border}`, cursor: 'pointer' }}
+                title="Edit profile"
+              >✏️</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={photoUploading || !activePet?.id}
+              style={{ padding: '6px 12px', borderRadius: '10px', background: colors.accent, color: colors.primary, border: 'none', cursor: photoUploading ? 'wait' : 'pointer', fontWeight: '600', fontSize: '12px' }}
+            >
+              {photoUploading ? 'Uploading…' : 'Change photo'}
+            </button>
+            {photoError && <span style={{ fontSize: '12px', color: colors.danger }}>{photoError}</span>}
           </div>
           <div style={{ flex: 1 }}>
             <h2 style={{ margin: '0 0 5px 0', color: colors.textMain, fontWeight: '900' }}>{activePet?.name}'s Profile</h2>
@@ -210,8 +291,40 @@ export default function Home({ events = [], petStats = {} }) {
                 <span style={{ color: colors.live, fontSize: '12px', fontWeight: 'bold' }}>LIVE</span>
               </div>
             </div>
-            <div style={{ width: '100%', height: '200px', backgroundColor: '#F1F5F9', borderRadius: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px dashed #E2E8F0' }}>
-              <Link to="/moniter" style={{ color: colors.primary, textDecoration: 'none', fontWeight: 'bold' }}>Open Camera Feed →</Link>
+            <div style={{ width: '100%', height: '200px', backgroundColor: '#F1F5F9', borderRadius: '20px', overflow: 'hidden', position: 'relative', border: '2px solid #E2E8F0' }}>
+              {streamFrameError ? (
+                <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                  <span style={{ color: colors.textMuted, fontSize: '14px' }}>Stream unavailable</span>
+                  <Link to="/moniter" style={{ color: colors.primary, textDecoration: 'none', fontWeight: 'bold' }}>Open Camera Feed →</Link>
+                </div>
+              ) : (
+                <>
+                  <img
+                    src={streamFrameUrl}
+                    alt="Live stream preview"
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                    onError={() => setStreamFrameError(true)}
+                    onLoad={() => setStreamFrameError(false)}
+                  />
+                  <Link
+                    to="/moniter"
+                    style={{
+                      position: 'absolute',
+                      bottom: '12px',
+                      right: '12px',
+                      padding: '8px 14px',
+                      background: 'rgba(0,0,0,0.6)',
+                      color: 'white',
+                      borderRadius: '10px',
+                      fontSize: '13px',
+                      fontWeight: '600',
+                      textDecoration: 'none',
+                    }}
+                  >
+                    Open full feed →
+                  </Link>
+                </>
+              )}
             </div>
           </div>
 
@@ -225,11 +338,11 @@ export default function Home({ events = [], petStats = {} }) {
                 </span>
               </div>
             </div>
-            
+
             <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: '180px', padding: '20px', backgroundColor: '#F8FAFC', borderRadius: '24px', gap: '12px' }}>
               {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, i) => {
                 const hrs = weeklySleepData[i];
-                const isToday = i === currentDayIndex; 
+                const isToday = i === currentDayIndex;
                 const barHeight = Math.min((hrs / 18) * 100, 100);
 
                 return (
@@ -269,8 +382,8 @@ export default function Home({ events = [], petStats = {} }) {
           <div style={{ 
             ...cardStyle, 
             background: `linear-gradient(rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.95)), url('https://www.transparenttextures.com/patterns/p6.png')`,
-            display: 'flex', 
-            flexDirection: 'column', 
+            display: 'flex',
+            flexDirection: 'column',
             justifyContent: 'space-between',
             position: 'relative',
             overflow: 'hidden'
@@ -284,10 +397,10 @@ export default function Home({ events = [], petStats = {} }) {
                 Curious about your pet's mix? Upload a photo and let our AI analyze unique physical traits to discover their breed heritage.
               </p>
             </div>
-            
-            <Link 
-              to="/breed-finder" 
-              style={{ 
+
+            <Link
+              to="/breed-finder"
+              style={{
                 marginTop: '25px',
                 display: 'block',
                 textAlign: 'center',

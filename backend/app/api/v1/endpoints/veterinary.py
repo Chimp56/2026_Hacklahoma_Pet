@@ -1,5 +1,7 @@
 """Veterinary care endpoints: vets, vet visits, medical records (docs). All under /pets/{pet_id}/veterinary/."""
 
+from datetime import date
+
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 from fastapi.responses import Response
 from sqlalchemy import select
@@ -17,16 +19,40 @@ from app.services.storage import get_storage
 
 router = APIRouter(prefix="/{pet_id}/veterinary", tags=["veterinary"])
 
-MEDICAL_RECORD_PDF = "application/pdf"
 MEDICAL_RECORD_MAX_SIZE = 50 * 1024 * 1024  # 50 MB
 
+# Allowed medical record types: MIME type -> typical extension for Content-Disposition
+ALLOWED_MEDICAL_RECORD_TYPES = {
+    "application/pdf",
+    "application/msword",  # .doc
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",  # .docx
+    "image/jpeg",
+    "image/png",
+}
 
-def _medical_record_pdf_url(pet_id: int, record_id: int) -> str:
-    """Accessible URL for the medical record PDF (veterinary path)."""
+
+def _medical_record_file_url(pet_id: int, record_id: int) -> str:
+    """Accessible URL for the medical record file (veterinary path)."""
     settings = get_settings()
     base = (settings.api_base_url or "http://localhost:8000").rstrip("/")
     prefix = (settings.api_v1_prefix or "/api/v1").rstrip("/")
     return f"{base}{prefix}/pets/{pet_id}/veterinary/medical-records/{record_id}/file"
+
+
+def _extension_for_mime(mime_type: str) -> str:
+    """Return a safe file extension for Content-Disposition."""
+    m = (mime_type or "").strip().lower()
+    if m == "application/pdf":
+        return "pdf"
+    if m == "application/msword":
+        return "doc"
+    if m == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+        return "docx"
+    if m == "image/jpeg":
+        return "jpg"
+    if m == "image/png":
+        return "png"
+    return "bin"
 
 
 # --- Vets ---
@@ -133,6 +159,26 @@ async def list_vet_visits(
         raise HTTPException(status_code=404, detail="Pet not found")
     result = await db.execute(
         select(VetVisit).where(VetVisit.pet_id == pet_id).order_by(VetVisit.visit_date.desc()).offset(skip).limit(limit)
+    )
+    return list(result.scalars().all())
+
+
+@router.get("/visits/upcoming", response_model=list[VetVisitResponse])
+async def list_upcoming_visits(
+    db: DbSession,
+    pet_id: int,
+    limit: int = Query(20, ge=1, le=100),
+) -> list[VetVisitResponse]:
+    """Upcoming vet visits for this pet (visit_date >= today). Ordered by visit_date ascending."""
+    pet = await pet_crud.get(db, id=pet_id)
+    if not pet:
+        raise HTTPException(status_code=404, detail="Pet not found")
+    today = date.today()
+    result = await db.execute(
+        select(VetVisit)
+        .where(VetVisit.pet_id == pet_id, VetVisit.visit_date >= today)
+        .order_by(VetVisit.visit_date.asc())
+        .limit(limit)
     )
     return list(result.scalars().all())
 
@@ -245,7 +291,7 @@ async def list_medical_records(
     return [
         MedicalRecordResponse(
             id=m.id,
-            url=_medical_record_pdf_url(pet_id, m.id),
+            url=_medical_record_file_url(pet_id, m.id),
             storage_key=m.storage_key,
             file_size_bytes=m.file_size_bytes,
             mime_type=m.mime_type,
@@ -272,7 +318,7 @@ async def get_latest_medical_record(db: DbSession, pet_id: int) -> MedicalRecord
         raise HTTPException(status_code=404, detail="No medical records found for this pet")
     return MedicalRecordResponse(
         id=media.id,
-        url=_medical_record_pdf_url(pet_id, media.id),
+        url=_medical_record_file_url(pet_id, media.id),
         storage_key=media.storage_key,
         file_size_bytes=media.file_size_bytes,
         mime_type=media.mime_type,
@@ -298,7 +344,7 @@ async def get_medical_record(db: DbSession, pet_id: int, record_id: int) -> Medi
         raise HTTPException(status_code=404, detail="Medical record not found")
     return MedicalRecordResponse(
         id=media.id,
-        url=_medical_record_pdf_url(pet_id, media.id),
+        url=_medical_record_file_url(pet_id, media.id),
         storage_key=media.storage_key,
         file_size_bytes=media.file_size_bytes,
         mime_type=media.mime_type,
@@ -308,7 +354,7 @@ async def get_medical_record(db: DbSession, pet_id: int, record_id: int) -> Medi
 
 @router.get("/medical-records/{record_id}/file", response_class=Response)
 async def get_medical_record_file(db: DbSession, pet_id: int, record_id: int) -> Response:
-    """Serve the medical record PDF (accessible URL for private buckets)."""
+    """Serve the medical record file (PDF, DOC, DOCX, JPG, PNG)."""
     pet = await pet_crud.get(db, id=pet_id)
     if not pet:
         raise HTTPException(status_code=404, detail="Pet not found")
@@ -327,10 +373,12 @@ async def get_medical_record_file(db: DbSession, pet_id: int, record_id: int) ->
         data = storage.read(media.storage_key)
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Medical record file not found in storage") from None
+    ext = _extension_for_mime(media.mime_type)
+    filename = f"medical-record.{ext}"
     return Response(
         content=data,
-        media_type=MEDICAL_RECORD_PDF,
-        headers={"Content-Disposition": "inline; filename=medical-record.pdf"},
+        media_type=media.mime_type,
+        headers={"Content-Disposition": f"inline; filename={filename}"},
     )
 
 
@@ -338,11 +386,11 @@ async def get_medical_record_file(db: DbSession, pet_id: int, record_id: int) ->
 async def upload_medical_record(
     db: DbSession,
     pet_id: int,
-    file: UploadFile = File(..., description="PDF file"),
+    file: UploadFile = File(..., description="Medical record: PDF, DOC, DOCX, JPG, or PNG"),
     owner_id: int = Query(1, description="Owner user id (from auth when available)"),
     vet_visit_id: int | None = Query(None, description="Optional: link this document to a vet visit"),
 ) -> MedicalRecordResponse:
-    """Upload a medical record PDF. Optionally link to a vet visit."""
+    """Upload a medical record (PDF, DOC, DOCX, JPG, PNG). Optionally link to a vet visit."""
     pet = await pet_crud.get(db, id=pet_id)
     if not pet:
         raise HTTPException(status_code=404, detail="Pet not found")
@@ -353,10 +401,10 @@ async def upload_medical_record(
         if result.scalar_one_or_none() is None:
             raise HTTPException(status_code=404, detail="Vet visit not found")
     content_type = (file.content_type or "").strip().lower()
-    if content_type != MEDICAL_RECORD_PDF:
+    if content_type not in ALLOWED_MEDICAL_RECORD_TYPES:
         raise HTTPException(
             status_code=400,
-            detail="Only PDF files are allowed. Use Content-Type: application/pdf",
+            detail="Allowed types: PDF, DOC, DOCX, JPG, PNG",
         )
     body = await file.read()
     if len(body) > MEDICAL_RECORD_MAX_SIZE:
@@ -365,15 +413,16 @@ async def upload_medical_record(
             detail=f"File too large. Max size is {MEDICAL_RECORD_MAX_SIZE // (1024*1024)} MB",
         )
     storage = get_storage()
-    key = storage.key_for("document", owner_id, file.filename or "medical-record.pdf")
-    storage.save(key, body, content_type=MEDICAL_RECORD_PDF)
+    default_name = f"medical-record.{_extension_for_mime(content_type)}"
+    key = storage.key_for("document", owner_id, file.filename or default_name)
+    storage.save(key, body, content_type)
     settings = get_settings()
     media = MediaFile(
         owner_id=owner_id,
         pet_id=pet_id,
         vet_visit_id=vet_visit_id,
         file_type="document",
-        mime_type=MEDICAL_RECORD_PDF,
+        mime_type=content_type,
         storage_key=key,
         storage_backend=settings.storage_backend,
         file_size_bytes=len(body),
@@ -383,7 +432,7 @@ async def upload_medical_record(
     await db.refresh(media)
     return MedicalRecordResponse(
         id=media.id,
-        url=_medical_record_pdf_url(pet_id, media.id),
+        url=_medical_record_file_url(pet_id, media.id),
         storage_key=media.storage_key,
         file_size_bytes=media.file_size_bytes,
         mime_type=media.mime_type,
