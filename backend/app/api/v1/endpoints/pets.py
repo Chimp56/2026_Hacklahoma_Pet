@@ -13,6 +13,7 @@ from app.models.vet_visit import VetVisit
 
 from app.config import get_settings
 from app.core.dependencies import DbSession
+from app.crud.activity_state_log import activity_state_log_crud
 from app.crud.eating_log import eating_log_crud
 from app.crud.pet import pet_crud
 from app.crud.sleep_log import sleep_log_crud
@@ -439,3 +440,36 @@ async def create_eating_log(db: DbSession, pet_id: int, body: EatingLogCreate) -
     if not pet:
         raise HTTPException(status_code=404, detail="Pet not found")
     return await eating_log_crud.create(db, pet_id=pet_id, obj_in=body)
+
+
+# --- Activity state (active / resting) for live stats chart ---
+
+
+@router.get("/{pet_id}/activity-state-logs", response_model=list[ActivityStateLogResponse])
+async def list_activity_state_logs(
+    db: DbSession,
+    pet_id: int,
+    since: Optional[datetime] = Query(None, description="Filter logs on or after this time (for live chart)"),
+    until: Optional[datetime] = Query(None, description="Filter logs on or before this time"),
+    skip: int = 0,
+    limit: int = Query(500, ge=1, le=2000),
+) -> list[ActivityStateLogResponse]:
+    """List activity state changes for a pet. Use for stats live chart (poll with since/until)."""
+    pet = await pet_crud.get(db, id=pet_id)
+    if not pet:
+        raise HTTPException(status_code=404, detail="Pet not found")
+    logs = await activity_state_log_crud.get_multi(
+        db, pet_id=pet_id, since=since, until=until, skip=skip, limit=limit
+    )
+    return list(logs)
+
+
+@router.post("/{pet_id}/activity-state-logs", response_model=ActivityStateLogResponse, status_code=201)
+async def create_activity_state_log(
+    db: DbSession, pet_id: int, body: ActivityStateLogCreate
+) -> ActivityStateLogResponse:
+    """Log an activity state change (active vs resting). Call when pet transitions to/from active."""
+    pet = await pet_crud.get(db, id=pet_id)
+    if not pet:
+        raise HTTPException(status_code=404, detail="Pet not found")
+    return await activity_state_log_crud.create(db, pet_id=pet_id, obj_in=body)

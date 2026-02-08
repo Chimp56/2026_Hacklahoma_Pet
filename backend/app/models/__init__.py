@@ -1,6 +1,7 @@
 """ORM models - import all so Alembic can discover them."""
 
 from app.models.activity import Activity
+from app.models.activity_state_log import ActivityStateLog
 from app.models.base import TimestampMixin
 from app.models.community_post import CommunityPost
 from app.models.eating_log import EatingLog
@@ -16,6 +17,7 @@ from app.models.vet_visit import VetVisit
 
 __all__ = [
     "Activity",
+    "ActivityStateLog",
     "CommunityPost",
     "EatingLog",
     "LLMOutput",

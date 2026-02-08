@@ -133,6 +133,17 @@ export const pets = {
   async getActivityStats(id, days = 7) {
     return requestOk("GET", `/pets/${id}/stats/activity?days=${days}`);
   },
+  /** List activity state changes (active/resting) for stats live chart. */
+  async getActivityStateLogs(petId, { since, until, skip = 0, limit = 500 } = {}) {
+    const params = new URLSearchParams({ skip, limit });
+    if (since != null) params.set("since", typeof since === "string" ? since : since.toISOString());
+    if (until != null) params.set("until", typeof until === "string" ? until : until.toISOString());
+    return requestOk("GET", `/pets/${petId}/activity-state-logs?${params}`);
+  },
+  /** Log an activity state change (active vs resting). */
+  async createActivityStateLog(petId, body) {
+    return requestOk("POST", `/pets/${petId}/activity-state-logs`, { body });
+  },
   async getCalendarEvents(id, start, end, includeActivity = true) {
     const params = new URLSearchParams({ start, end, include_activity: includeActivity });
     return requestOk("GET", `/pets/${id}/calendar/events?${params}`);

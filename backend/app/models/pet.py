@@ -32,6 +32,9 @@ class Pet(Base, TimestampMixin):
     llm_outputs: Mapped[list["LLMOutput"]] = relationship("LLMOutput", back_populates="pet", lazy="selectin")
     sleep_logs: Mapped[list["SleepLog"]] = relationship("SleepLog", back_populates="pet", lazy="selectin")
     eating_logs: Mapped[list["EatingLog"]] = relationship("EatingLog", back_populates="pet", lazy="selectin")
+    activity_state_logs: Mapped[list["ActivityStateLog"]] = relationship(
+        "ActivityStateLog", back_populates="pet", lazy="selectin"
+    )
     vet_visits: Mapped[list["VetVisit"]] = relationship("VetVisit", back_populates="pet", lazy="selectin")
     community_posts: Mapped[list["CommunityPost"]] = relationship(
         "CommunityPost", back_populates="pet", lazy="selectin"

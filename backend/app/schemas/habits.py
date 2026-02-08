@@ -54,3 +54,22 @@ class EatingLogResponse(BaseModel):
     notes: Optional[str] = None
     source: str
     created_at: datetime
+
+
+class ActivityStateLogCreate(BaseModel):
+    """Log an activity state change (active vs resting)."""
+
+    active: bool = Field(..., description="True = active, False = resting")
+    start_time: Optional[datetime] = Field(None, description="When the state started (default: now)")
+
+
+class ActivityStateLogResponse(BaseModel):
+    """Activity state log in API response."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    pet_id: int
+    active: bool
+    start_time: datetime
+    created_at: datetime
