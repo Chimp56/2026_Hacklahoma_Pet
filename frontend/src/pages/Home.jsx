@@ -82,7 +82,7 @@ export default function Home() {
             <span>📊</span> Stats
           </Link>
 
-          <Link to="/calender" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', textDecoration: 'none', color: colors.textMuted, fontWeight: '600', marginBottom: '8px' }}>
+          <Link to="/calendar" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', textDecoration: 'none', color: colors.textMuted, fontWeight: '600', marginBottom: '8px' }}>
             <span>📅</span> Calendar
           </Link>
 
@@ -152,7 +152,7 @@ export default function Home() {
                 <div style={{ fontSize: '12px', fontWeight: 'bold' }}>OCT</div>
                 <div style={{ fontSize: '22px', fontWeight: '900' }}>24</div>
               </div>
-              <Link to="/calender" style={{ textDecoration: 'none', color: colors.textMain, fontWeight: '800' }}>Vet Checkup</Link>
+              <Link to="/calendar" style={{ textDecoration: 'none', color: colors.textMain, fontWeight: '800' }}>Vet Checkup</Link>
             </div>
           </div>
 
