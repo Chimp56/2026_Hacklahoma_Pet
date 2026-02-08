@@ -6,25 +6,29 @@ export default function Navbar() {
   const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
   const colors = {
-    primary: "#A78BFA",
-    textMain: "#1E293B",
-    textMuted: "#64748B",
-    bg: "rgba(255, 255, 255, 0.8)",
-    border: "#E2E8F0",
+    primary: '#A78BFA', // Soft Purple
+    textMain: '#1E293B',
+    textMuted: '#64748B',
+    bg: 'rgba(255, 255, 255, 0.95)',
+    border: '#E2E8F0'
   };
 
   const navStyle = {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: "15px 40px",
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '0 40px',
+    height: '70px',
     backgroundColor: colors.bg,
-    backdropFilter: "blur(10px)",
+    backdropFilter: 'blur(10px)',
     borderBottom: `1px solid ${colors.border}`,
-    position: "sticky",
+    position: 'fixed',
     top: 0,
-    zIndex: 1000,
-    fontFamily: "sans-serif",
+    left: 0,
+    right: 0,
+    zIndex: 1100,
+    fontFamily: "'Inter', sans-serif",
+    boxSizing: 'border-box'
   };
 
   const logoStyle = {

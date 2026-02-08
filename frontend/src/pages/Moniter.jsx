@@ -1,157 +1,136 @@
-import { useEffect, useRef, useState } from "react";
-import Hls from "hls.js";
-import FileUpload from "../components/FileUpload";
-import Loading from "../components/Loading";
-import ResultCard from "../components/ResultCard";
-import api from "../api/api";
-
-const DEFAULT_CHANNEL = "speedingchimp";
-
-/** Proxy URL so backend fetches Twitch HLS (avoids 403 when browser hits Twitch directly). */
-function getStreamProxyUrl() {
-  return `${api.getBaseUrl()}/stream/proxy?channel=${encodeURIComponent(DEFAULT_CHANNEL)}`;
-}
+import React, { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
+import "./Monitor.css";
 
 export default function Moniter() {
   const videoRef = useRef(null);
-  const hlsRef = useRef(null);
+  const [mode, setMode] = useState("placeholder"); // "placeholder" | "webcam" | "backend"
+  const [status, setStatus] = useState("Waiting for stream…");
+  
+  const colors = {
+    bgGradient: 'linear-gradient(135deg, #EEF2FF 0%, #F5F3FF 100%)',
+    sidebarBg: 'rgba(255, 255, 255, 0.95)',
+    primary: '#A78BFA',
+    textMain: '#1E293B',
+    textMuted: '#64748B',
+    border: '#E2E8F0',
+    danger: '#EF4444'
+  };
 
-  const [streamUrl] = useState(getStreamProxyUrl);
-  const [streamError, setStreamError] = useState("");
-  const [streamLoading, setStreamLoading] = useState(true);
-  const [analysisLoading, setAnalysisLoading] = useState(false);
-  const [result, setResult] = useState(null);
-
-  // Attach HLS or native src to video when streamUrl is set (proxy URL)
   useEffect(() => {
-    const video = videoRef.current;
-    if (!streamUrl || !video) return;
-
-    if (Hls.isSupported()) {
-      const hls = new Hls({
-        enableWorker: true,
-        lowLatencyMode: true,
-      });
-      hlsRef.current = hls;
-      hls.loadSource(streamUrl);
-      hls.attachMedia(video);
-      hls.on(Hls.Events.MANIFEST_PARSED, () => setStreamLoading(false));
-      hls.on(Hls.Events.ERROR, (_, data) => {
-        if (data.fatal) {
-          hls.destroy();
-          setStreamLoading(false);
-          setStreamError(data.message || "Stream error. Channel may be offline.");
-        }
-      });
-      return () => {
-        hls.destroy();
-        hlsRef.current = null;
-      };
-    }
-
-    if (video.canPlayType("application/vnd.apple.mpegurl")) {
-      video.src = streamUrl;
-      const onLoaded = () => setStreamLoading(false);
-      const onErr = () => {
-        setStreamLoading(false);
-        setStreamError("Stream error. Channel may be offline.");
-      };
-      video.addEventListener("loadeddata", onLoaded);
-      video.addEventListener("error", onErr);
-      return () => {
-        video.removeEventListener("loadeddata", onLoaded);
-        video.removeEventListener("error", onErr);
-        video.src = "";
-      };
-    }
-
-    setStreamLoading(false);
-    setStreamError("HLS playback not supported in this browser.");
-  }, [streamUrl]);
-
-  function handleUpload(file) {
-    setAnalysisLoading(true);
-    setResult(null);
-    setTimeout(() => {
-      setResult({
-        sleep: "38 minutes",
-        meals: 1,
-        activity: "Normal",
-      });
-      setAnalysisLoading(false);
-    }, 1500);
-  }
+    if (mode !== "webcam") return;
+    let stream;
+    (async () => {
+      try {
+        setStatus("Connecting to webcam…");
+        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        if (videoRef.current) videoRef.current.srcObject = stream;
+        setStatus("Live (webcam)");
+      } catch (e) {
+        setStatus("Webcam blocked or unavailable.");
+      }
+    })();
+    return () => {
+      if (stream) stream.getTracks().forEach((t) => t.stop());
+    };
+  }, [mode]);
 
   return (
-    <div className="page">
-      <h2>Live Monitor</h2>
+    <div style={{ 
+      display: 'flex', 
+      minHeight: '100vh', 
+      width: '100vw', 
+      background: colors.bgGradient, 
+      fontFamily: "'Inter', sans-serif",
+      overflow: 'hidden'
+    }}>
+      
+      {/* SIDEBAR - Clean, regular bars only */}
+      <aside style={{ 
+        width: '280px', 
+        height: 'calc(100vh - 70px)', 
+        background: colors.sidebarBg, 
+        backdropFilter: 'blur(15px)', 
+        borderRight: `1px solid ${colors.border}`, 
+        padding: '20px', 
+        position: 'fixed', 
+        left: 0, 
+        top: '70px', 
+        zIndex: 10, 
+        display: 'flex', 
+        flexDirection: 'column', 
+        boxSizing: 'border-box' 
+      }}>
+        <nav style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <Link to="/home" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', textDecoration: 'none', color: colors.textMuted, fontWeight: '600', borderRadius: '12px' }}>🏠 Dashboard</Link>
+          <Link to="/moniter" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', textDecoration: 'none', color: colors.primary, background: 'rgba(167, 139, 250, 0.15)', fontWeight: '700', borderRadius: '12px' }}>📹 Monitor</Link>
+          <Link to="/stats" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', textDecoration: 'none', color: colors.textMuted, fontWeight: '600', borderRadius: '12px' }}>📊 Stats</Link>
+          <Link to="/calendar" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', textDecoration: 'none', color: colors.textMuted, fontWeight: '600', borderRadius: '12px' }}>📅 Calendar</Link>
+          <Link to="/community" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', textDecoration: 'none', color: colors.textMuted, fontWeight: '600', borderRadius: '12px' }}>🤝 Community</Link>
+        </nav>
 
-      {/* Live video via /api/v1/stream/proxy (avoids Twitch 403 in browser) */}
-      <div
-        style={{
-          position: "relative",
-          width: "100%",
-          maxWidth: "900px",
-          aspectRatio: "16/9",
-          backgroundColor: "#111",
-          borderRadius: "16px",
-          overflow: "hidden",
-          marginBottom: "24px",
-        }}
-      >
-        {streamUrl && (
-          <video
-            ref={videoRef}
-            autoPlay
-            muted
-            playsInline
-            controls
-            style={{ width: "100%", height: "100%", display: "block" }}
-          />
-        )}
-        {streamLoading && (
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "#94A3B8",
-              backgroundColor: "rgba(0,0,0,0.5)",
-            }}
-          >
-            Loading stream…
+        <div style={{ marginTop: 'auto', borderTop: `1px solid ${colors.border}`, paddingTop: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <Link to="/settings" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', textDecoration: 'none', color: colors.textMuted, fontWeight: '600', borderRadius: '12px' }}>⚙️ Account Settings</Link>
+          <button style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', background: 'none', border: 'none', color: colors.danger, fontWeight: '700', cursor: 'pointer', textAlign: 'left' }}>🚪 Log Out</button>
+        </div>
+      </aside>
+
+      {/* MAIN CONTENT - Standard 70px offset */}
+      <main style={{ 
+        flex: 1, 
+        marginLeft: '280px', 
+        marginTop: '70px', 
+        padding: '40px 60px', 
+        height: 'calc(100vh - 70px)',
+        overflowY: 'auto',
+        boxSizing: 'border-box'
+      }}>
+        <div className="mon">
+          <div className="mon__header">
+            <div>
+              <h1 className="mon__title">Live Monitor</h1>
+              <p className="mon__sub">{status}</p>
+            </div>
+
+            <div className="mon__controls">
+              <button className={`mon__btn ${mode === "placeholder" ? "isActive" : ""}`} onClick={() => setMode("placeholder")}>Placeholder</button>
+              <button className={`mon__btn ${mode === "webcam" ? "isActive" : ""}`} onClick={() => setMode("webcam")}>Test Webcam</button>
+              <button className={`mon__btn ${mode === "backend" ? "isActive" : ""}`} onClick={() => { setMode("backend"); setStatus("Waiting for backend stream…"); }}>Backend Stream</button>
+            </div>
           </div>
-        )}
-        {streamError && !streamLoading && (
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "#EF4444",
-              padding: "24px",
-              textAlign: "center",
-              backgroundColor: "rgba(0,0,0,0.5)",
-            }}
-          >
-            {streamError}
+
+          <div className="mon__grid">
+            <div className="mon__videoCard">
+              <div className="mon__videoTop">
+                <span className="mon__chip">CAMERA</span>
+                <span className="mon__chip mon__chipSoft">
+                  {mode === "placeholder" ? "Demo" : mode === "webcam" ? "Webcam" : "Backend"}
+                </span>
+              </div>
+              <div className="mon__videoWrap">
+                {mode === "placeholder" ? (
+                  <div className="mon__placeholder">
+                    <div className="mon__placeholderBox" />
+                    <p className="mon__placeholderText">Live feed active.</p>
+                  </div>
+                ) : (
+                  <video ref={videoRef} className="mon__video" autoPlay playsInline muted />
+                )}
+              </div>
+            </div>
+
+            <aside className="mon__side">
+              <div className="mon__panel">
+                <h2 className="mon__h2">Notes</h2>
+                <textarea className="mon__notes" placeholder="Add observations here..." />
+                <button className="mon__btnWide" style={{ backgroundColor: colors.primary, color: 'white', border: 'none', borderRadius: '12px', padding: '12px', fontWeight: 'bold', cursor: 'pointer', marginTop: '10px' }}>
+                  Save Note
+                </button>
+              </div>
+            </aside>
           </div>
-        )}
-      </div>
-      <h3 style={{ marginTop: "8px", marginBottom: "12px" }}>Analyze video</h3>
-      <FileUpload label="Analyze Video" onSubmit={handleUpload} />
-      {analysisLoading && <Loading />}
-      {result && (
-        <ResultCard title="Results">
-          <p>Sleep: {result.sleep}</p>
-          <p>Meals: {result.meals}</p>
-          <p>Activity: {result.activity}</p>
-        </ResultCard>
-      )}
+        </div>
+      </main>
     </div>
   );
 }
