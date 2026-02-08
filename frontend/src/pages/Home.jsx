@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { usePet } from '../PetContext';
 
 export default function Home({ events = [], petStats = {} }) {
   const { pets, activePet, setActivePet } = usePet();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const navigate = useNavigate();
 
   const navbarHeight = '70px';
   const petName = activePet?.name || "Buddy";
   
-  // Get real-time day index (0 is Sunday, 6 is Saturday)
   const realToday = new Date();
   const currentDayIndex = realToday.getDay();
 
@@ -27,12 +27,9 @@ export default function Home({ events = [], petStats = {} }) {
     border: '#E2E8F0'
   };
 
-  // SYNC LOGIC:
-  // 1. Define baseline data as 0 for all days until sync
   const staticWeeklyData = [0, 0, 0, 0, 0, 0, 0];
   const liveSleep = activePet?.stats?.sleepHours || 0;
 
-  // 2. Only override the bar that matches currentDayIndex with live data
   const weeklySleepData = staticWeeklyData.map((val, i) =>
     i === currentDayIndex ? liveSleep : val
   );
@@ -127,6 +124,45 @@ export default function Home({ events = [], petStats = {} }) {
             Dashboard Synced: Tracking live sleep for today.
           </p>
         </header>
+
+        {/* PET PROFILE SECTION - NOW BELOW THE HEADING */}
+        <div style={{ ...cardStyle, marginBottom: '40px', display: 'flex', alignItems: 'center', gap: '30px', position: 'relative' }}>
+          <div 
+            onClick={() => navigate('/register-pet', { state: { petToEdit: activePet } })}
+            style={{ fontSize: '60px', backgroundColor: colors.accent, padding: '20px', borderRadius: '50%', boxShadow: '0 4px 15px rgba(0,0,0,0.05)', cursor: 'pointer', border: `2px solid transparent`, transition: 'all 0.2s ease', position: 'relative' }}
+            onMouseOver={(e) => e.currentTarget.style.borderColor = colors.primary}
+            onMouseOut={(e) => e.currentTarget.style.borderColor = 'transparent'}
+          >
+            {activePet?.image || '🐾'}
+            <div style={{ position: 'absolute', bottom: '5px', right: '5px', background: colors.white, borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', boxShadow: '0 2px 5px rgba(0,0,0,0.1)', border: `1px solid ${colors.border}` }}>✏️</div>
+          </div>
+          <div style={{ flex: 1 }}>
+            <h2 style={{ margin: '0 0 5px 0', color: colors.textMain, fontWeight: '900' }}>{activePet?.name}'s Profile</h2>
+            <p style={{ margin: 0, color: colors.textMuted, fontWeight: '600' }}>
+              Registered Breed: <span style={{ color: colors.primary }}>{activePet?.breed || "Not specified"}</span>
+            </p>
+            <div style={{ display: 'flex', gap: '20px', marginTop: '15px' }}>
+               <div style={{ background: '#F8FAFC', padding: '10px 15px', borderRadius: '15px', border: `1px solid ${colors.border}` }}>
+                  <small style={{ display: 'block', color: colors.textMuted, fontSize: '10px', fontWeight: '800', textTransform: 'uppercase' }}>Age</small>
+                  <span style={{ fontWeight: '700', color: colors.textMain }}>{activePet?.age || "--"} years</span>
+               </div>
+               <div style={{ background: '#F8FAFC', padding: '10px 15px', borderRadius: '15px', border: `1px solid ${colors.border}` }}>
+                  <small style={{ display: 'block', color: colors.textMuted, fontSize: '10px', fontWeight: '800', textTransform: 'uppercase' }}>Weight</small>
+                  <span style={{ fontWeight: '700', color: colors.textMain }}>{activePet?.weight || "--"} lbs</span>
+               </div>
+               <div style={{ background: '#F8FAFC', padding: '10px 15px', borderRadius: '15px', border: `1px solid ${colors.border}` }}>
+                  <small style={{ display: 'block', color: colors.textMuted, fontSize: '10px', fontWeight: '800', textTransform: 'uppercase' }}>Gender</small>
+                  <span style={{ fontWeight: '700', color: colors.textMain }}>{activePet?.gender || "--"}</span>
+               </div>
+            </div>
+          </div>
+          <button 
+            onClick={() => navigate('/register-pet', { state: { petToEdit: activePet } })}
+            style={{ padding: '12px 20px', borderRadius: '15px', background: colors.accent, color: colors.primary, border: 'none', cursor: 'pointer', fontWeight: '700', fontSize: '14px' }}
+          >
+            Edit Profile
+          </button>
+        </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '25px', paddingBottom: '40px' }}>
           <div style={cardStyle}>
