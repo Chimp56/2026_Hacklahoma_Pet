@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { Link } from "react-router-dom";
 import { usePet } from '../PetContext'; 
 
@@ -9,6 +9,13 @@ export default function Stats() {
 
   const [weekOffset, setWeekOffset] = useState(0); 
   const [currentActivity, setCurrentActivity] = useState('Active');
+  
+  // --- NEW STATE: MEDICAL RECORDS ---
+  const fileInputRef = useRef(null);
+  const [medicalRecords, setMedicalRecords] = useState([
+    { id: 1, name: 'Vaccination_Record_2025.pdf', date: '2025-12-15', size: '1.2 MB' },
+    { id: 2, name: 'Annual_Checkup_Summary.docx', date: '2026-01-10', size: '450 KB' }
+  ]);
 
   // --- STYLE CONSTANTS ---
   const navbarHeight = '70px'; 
@@ -22,8 +29,8 @@ export default function Stats() {
     white: '#FFFFFF',
     border: '#E2E8F0',
     wellness: '#10B981', 
-    warning: '#F59E0B',  
-    danger: '#EF4444',   
+    warning: '#F59E0B',   
+    danger: '#EF4444',    
     activity: '#f43fb8',
     accent: '#F5F3FF',
   };
@@ -55,10 +62,8 @@ export default function Stats() {
 
   const activityMap = { 'Very Active': 100, 'Active': 80, 'Low Energy': 45, 'Lethargic': 15 };
   
-  // SYNC LOGIC: Updated to use activePet from context
   const historyData = useMemo(() => ({
     "0": { 
-      // Using the stats directly from activePet ensures graph moves with sliders
       sleep: [8, 7, 9, 11, 8, 10, activePet.stats.sleepHours], 
       activity: activePet.stats.activityData 
     },
@@ -104,19 +109,17 @@ export default function Stats() {
     overflowY: 'auto', boxSizing: 'border-box'
   };
 
-  // --- UPDATED HANDLERS TO ENSURE HOME PAGE SYNC ---
-
   const handleSleepUpdate = (newVal) => {
     const val = parseFloat(newVal);
     const updatedPets = pets.map(p => {
         if (p.id === activePet.id) {
             const updated = { ...p, stats: { ...p.stats, sleepHours: val } };
-            setActivePet(updated); // Sync Stats page view
+            setActivePet(updated); 
             return updated;
         }
         return p;
     });
-    setPets(updatedPets); // Sync Home page (master list)
+    setPets(updatedPets);
   };
 
   const handleActivityUpdate = (status) => {
@@ -127,12 +130,26 @@ export default function Stats() {
         const newActivity = [...p.stats.activityData];
         newActivity[6] = numericValue; 
         const updated = { ...p, stats: { ...p.stats, activityData: newActivity } };
-        setActivePet(updated); // Sync Stats page view
+        setActivePet(updated); 
         return updated;
       }
       return p;
     });
-    setPets(updatedPets); // Sync Home page (master list)
+    setPets(updatedPets);
+  };
+
+  // --- NEW HANDLERS: MEDICAL RECORDS ---
+  const handleFileUpload = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      const newRecord = {
+        id: Date.now(),
+        name: file.name,
+        date: new Date().toISOString().split('T')[0],
+        size: (file.size / 1024).toFixed(1) + ' KB'
+      };
+      setMedicalRecords([newRecord, ...medicalRecords]);
+    }
   };
 
   return (
@@ -233,12 +250,52 @@ export default function Stats() {
           </div>
         </div>
 
-        <div style={{ backgroundColor: 'white', padding: '35px', borderRadius: '28px', border: `1px solid ${colors.border}`, marginBottom: '40px' }}>
+        <div style={{ backgroundColor: 'white', padding: '35px', borderRadius: '28px', border: `1px solid ${colors.border}`, marginBottom: '25px' }}>
           <h4 style={{ marginTop: 0, marginBottom: '25px' }}>Lifetime Progress (2026)</h4>
           <svg viewBox="0 0 780 180" style={{ width: '100%', height: 'auto', overflow: 'visible' }}>
             {lifetimeScores.map((score, i) => i === 0 ? null : <line key={i} x1={(i-1) * 68 + GRAPH_PADDING} y1={140 - (lifetimeScores[i-1] * 1.1)} x2={i * 68 + GRAPH_PADDING} y2={140 - (score * 1.1)} stroke={getThemeColor(score)} strokeWidth="5" strokeLinecap="round" />)}
             {months.map((m, i) => <text key={i} x={i * 68 + GRAPH_PADDING} y="165" textAnchor="middle" style={{ fontSize: '11px', fill: colors.textMuted, fontWeight: '800' }}>{m}</text>)}
           </svg>
+        </div>
+
+        {/* --- NEW SECTION: MEDICAL RECORDS --- */}
+        <div style={{ backgroundColor: 'white', padding: '35px', borderRadius: '28px', border: `1px solid ${colors.border}`, marginBottom: '40px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
+            <div>
+              <h4 style={{ margin: 0, fontSize: '20px', fontWeight: '800', color: colors.textMain }}>Medical Records</h4>
+              <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: colors.textMuted }}>Centralized history for {activePet?.name}</p>
+            </div>
+            <button 
+              onClick={() => fileInputRef.current.click()}
+              style={{ padding: '10px 20px', backgroundColor: colors.primary, color: 'white', border: 'none', borderRadius: '12px', fontWeight: '700', cursor: 'pointer', boxShadow: '0 4px 12px rgba(167, 139, 250, 0.3)' }}
+            >
+              + Upload Record
+            </button>
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              style={{ display: 'none' }} 
+              onChange={handleFileUpload} 
+              accept=".pdf,.doc,.docx,.jpg,.png"
+            />
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {medicalRecords.length > 0 ? medicalRecords.map(record => (
+              <div key={record.id} style={{ display: 'flex', alignItems: 'center', padding: '16px', borderRadius: '16px', border: `1px solid ${colors.border}`, backgroundColor: '#F9FAFB' }}>
+                <div style={{ fontSize: '24px', marginRight: '16px' }}>📄</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: '700', color: colors.textMain, fontSize: '14px' }}>{record.name}</div>
+                  <div style={{ fontSize: '12px', color: colors.textMuted }}>Uploaded on {record.date} • {record.size}</div>
+                </div>
+                <button style={{ background: 'none', border: 'none', color: colors.primary, fontWeight: '700', cursor: 'pointer', fontSize: '13px' }}>View</button>
+              </div>
+            )) : (
+              <div style={{ textAlign: 'center', padding: '40px', color: colors.textMuted, fontSize: '14px', border: `2px dashed ${colors.border}`, borderRadius: '20px' }}>
+                No medical records uploaded yet.
+              </div>
+            )}
+          </div>
         </div>
       </main>
     </div>
