@@ -41,11 +41,13 @@ class CRUDActivityStateLog:
         skip: int = 0,
         limit: int = 500,
     ) -> Sequence[ActivityStateLog]:
+        since_naive = _naive_utc(since)
+        until_naive = _naive_utc(until)
         q = select(ActivityStateLog).where(ActivityStateLog.pet_id == pet_id)
-        if since is not None:
-            q = q.where(ActivityStateLog.start_time >= since)
-        if until is not None:
-            q = q.where(ActivityStateLog.start_time <= until)
+        if since_naive is not None:
+            q = q.where(ActivityStateLog.start_time >= since_naive)
+        if until_naive is not None:
+            q = q.where(ActivityStateLog.start_time <= until_naive)
         q = q.order_by(ActivityStateLog.start_time.desc()).offset(skip).limit(limit)
         result = await db.execute(q)
         return result.scalars().all()

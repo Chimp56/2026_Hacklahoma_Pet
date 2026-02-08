@@ -26,6 +26,9 @@ export default function Stats() {
     return () => clearInterval(timer);
   }, []);
 
+  // --- ACTIVITY STATE LOGS (API: /api/v1/pets/{id}/activity-state-logs) ---
+  const [activityStateLogs, setActivityStateLogs] = useState([]);
+
   // --- MEDICAL RECORDS ---
   const fileInputRef = useRef(null);
   const mockMedicalRecords = [
@@ -66,12 +69,37 @@ export default function Stats() {
   }) + ` | ${currentTime.toLocaleTimeString()}`;
 
   const activityMap = { 'Very Active': 100, 'Active': 80, 'Low Energy': 45, 'Lethargic': 15 };
-  
-  // Data reflects the last minute of activity + jitter on the final point
-  const rawData = useMemo(() => ({
-    sleep: [8, 8, 8, 8, 8, 8, activePet.stats.sleepHours],
-    activity: [...activePet.stats.activityData.slice(0, 6), activePet.stats.activityData[6] + jitter]
-  }), [activePet, jitter]);
+  /** Map UI status to API active (true = active, false = resting). */
+  const statusToActive = (status) => status === 'Very Active' || status === 'Active';
+
+  // Build 7-point activity series from API logs (60s ago ... Now). Logs are desc by start_time.
+  const activityFromApi = useMemo(() => {
+    if (!activityStateLogs?.length) return null;
+    const now = currentTime.getTime();
+    const bucketSeconds = [60, 50, 40, 30, 20, 10, 0];
+    const sorted = [...activityStateLogs].sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
+    return bucketSeconds.map((secAgo) => {
+      const bucketTime = new Date(now - secAgo * 1000).getTime();
+      const prior = sorted.filter((l) => new Date(l.start_time).getTime() <= bucketTime);
+      const latest = prior[prior.length - 1];
+      if (!latest) return 50;
+      return latest.active ? 80 : 20;
+    });
+  }, [activityStateLogs, currentTime]);
+
+  // Data: sleep from context; activity from API logs when available, else context + jitter on last point
+  const rawData = useMemo(() => {
+    const sleep = [8, 8, 8, 8, 8, 8, activePet?.stats?.sleepHours ?? 8];
+    let activity;
+    if (activityFromApi && activityFromApi.length === 7) {
+      activity = [...activityFromApi];
+      activity[6] = Math.min(100, Math.max(0, (activity[6] || 0) + jitter));
+    } else {
+      const fallback = activePet?.stats?.activityData ?? [8, 7, 9, 11, 8, 10, 8];
+      activity = [...fallback.slice(0, 6), (fallback[6] ?? 8) + jitter];
+    }
+    return { sleep, activity };
+  }, [activePet, jitter, activityFromApi]);
 
   const calculateWellness = (sleepHrs, activityPct) => {
     const sleepScore = Math.min((sleepHrs / 8) * 100, 100); 
@@ -112,6 +140,23 @@ export default function Stats() {
     fetchMedicalRecords();
   }, [activePet?.id]);
 
+  const fetchActivityStateLogs = async () => {
+    if (!activePet?.id) return;
+    try {
+      const since = new Date(Date.now() - 2 * 60 * 1000);
+      const list = await api.pets.getActivityStateLogs(activePet.id, { since, limit: 200 });
+      setActivityStateLogs(Array.isArray(list) ? list : []);
+    } catch (_) {
+      setActivityStateLogs([]);
+    }
+  };
+
+  useEffect(() => {
+    fetchActivityStateLogs();
+    const interval = setInterval(fetchActivityStateLogs, 15000);
+    return () => clearInterval(interval);
+  }, [activePet?.id]);
+
   const GRAPH_SPACING = 60; 
   const GRAPH_PADDING = 20; 
   const getPath = (vals, multiplier) => vals.map((v, i) => `${i * GRAPH_SPACING + GRAPH_PADDING},${140 - (v * multiplier)}`).join(' L ');
@@ -131,20 +176,30 @@ export default function Stats() {
     setPets(updatedPets);
   };
 
-  const handleActivityUpdate = (status) => {
+  const handleActivityUpdate = async (status) => {
     setCurrentActivity(status);
     const numericValue = activityMap[status];
     const updatedPets = pets.map(p => {
       if (p.id === activePet.id) {
-        const newActivity = [...p.stats.activityData];
-        newActivity[6] = numericValue; 
+        const newActivity = [...(p.stats?.activityData ?? [8, 7, 9, 11, 8, 10, 8])];
+        newActivity[6] = numericValue;
         const updated = { ...p, stats: { ...p.stats, activityData: newActivity } };
-        setActivePet(updated); 
+        setActivePet(updated);
         return updated;
       }
       return p;
     });
     setPets(updatedPets);
+
+    if (activePet?.id) {
+      try {
+        await api.pets.createActivityStateLog(activePet.id, {
+          active: statusToActive(status),
+          start_time: new Date().toISOString(),
+        });
+        await fetchActivityStateLogs();
+      } catch (_) {}
+    }
   };
 
   // --- MEDICAL RECORDS: upload (API) and view ---
@@ -325,7 +380,7 @@ export default function Stats() {
           </div>
           <div style={{ backgroundColor: 'white', padding: '28px', borderRadius: '28px', border: `1px solid ${colors.border}` }}>
             <h4 style={{ margin: 0 }}>Rest Index</h4>
-            <input type="range" min="0" max="15" step="0.5" value={activePet.stats.sleepHours} onChange={(e) => handleSleepUpdate(e.target.value)} style={{ width: '100%', marginTop: '20px', accentColor: colors.primary }} />
+            <input type="range" min="0" max="15" step="0.5" value={activePet?.stats?.sleepHours ?? 8} onChange={(e) => handleSleepUpdate(e.target.value)} style={{ width: '100%', marginTop: '20px', accentColor: colors.primary }} />
           </div>
         </div>
 
