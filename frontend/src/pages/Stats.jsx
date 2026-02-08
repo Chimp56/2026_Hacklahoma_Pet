@@ -1,6 +1,7 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Link } from "react-router-dom";
-import { usePet } from '../PetContext'; 
+import { usePet } from '../PetContext';
+import api from '../api/api'; 
 
 export default function Stats() {
   // --- PET SWITCHER STATE & CONTEXT ---
@@ -10,12 +11,17 @@ export default function Stats() {
   const [weekOffset, setWeekOffset] = useState(0); 
   const [currentActivity, setCurrentActivity] = useState('Active');
   
-  // --- NEW STATE: MEDICAL RECORDS ---
+  // --- MEDICAL RECORDS: mock + API ---
   const fileInputRef = useRef(null);
-  const [medicalRecords, setMedicalRecords] = useState([
-    { id: 1, name: 'Vaccination_Record_2025.pdf', date: '2025-12-15', size: '1.2 MB' },
-    { id: 2, name: 'Annual_Checkup_Summary.docx', date: '2026-01-10', size: '450 KB' }
-  ]);
+  const mockMedicalRecords = [
+    { id: 'mock-1', name: 'Vaccination_Record_2025.pdf', date: '2025-12-15', size: '1.2 MB', source: 'mock' },
+    { id: 'mock-2', name: 'Annual_Checkup_Summary.docx', date: '2026-01-10', size: '450 KB', source: 'mock' }
+  ];
+  const [apiMedicalRecords, setApiMedicalRecords] = useState([]);
+  const [uploadError, setUploadError] = useState('');
+  const [viewingRecord, setViewingRecord] = useState(null);
+  const [viewerBlobUrl, setViewerBlobUrl] = useState(null);
+  const [loadingViewer, setLoadingViewer] = useState(false);
 
   // --- STYLE CONSTANTS ---
   const navbarHeight = '70px'; 
@@ -90,6 +96,30 @@ export default function Stats() {
   };
   const currentThemeColor = getThemeColor(avgWellness);
 
+  const allMedicalRecords = useMemo(() => {
+    const fromApi = (apiMedicalRecords || []).map((m) => {
+      const name = (m.storage_key && m.storage_key.split(/[/\\]/).pop()) || `Medical record #${m.id}`;
+      const date = m.created_at ? new Date(m.created_at).toISOString().split('T')[0] : '—';
+      const size = m.file_size_bytes != null ? (m.file_size_bytes < 1024 ? `${m.file_size_bytes} B` : (m.file_size_bytes / 1024).toFixed(1) + ' KB') : '—';
+      return { id: `api-${m.id}`, apiId: m.id, name, date, size, source: 'api', mimeType: m.mime_type || '' };
+    });
+    return [...fromApi, ...mockMedicalRecords];
+  }, [apiMedicalRecords, mockMedicalRecords]);
+
+  const fetchMedicalRecords = async () => {
+    if (!activePet?.id) return;
+    try {
+      const list = await api.pets.listMedicalRecords(activePet.id);
+      setApiMedicalRecords(list);
+    } catch (_) {
+      setApiMedicalRecords([]);
+    }
+  };
+
+  useEffect(() => {
+    fetchMedicalRecords();
+  }, [activePet?.id]);
+
   const GRAPH_SPACING = 60; 
   const GRAPH_PADDING = 20; 
   const getPath = (vals, multiplier) => vals.map((v, i) => `${i * GRAPH_SPACING + GRAPH_PADDING},${140 - (v * multiplier)}`).join(' L ');
@@ -138,18 +168,60 @@ export default function Stats() {
     setPets(updatedPets);
   };
 
-  // --- NEW HANDLERS: MEDICAL RECORDS ---
-  const handleFileUpload = (event) => {
+  // --- MEDICAL RECORDS: upload (API) and view ---
+  const ALLOWED_MEDICAL_MIMES = [
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'image/jpeg',
+    'image/png',
+  ];
+  const handleFileUpload = async (event) => {
     const file = event.target.files[0];
-    if (file) {
-      const newRecord = {
-        id: Date.now(),
-        name: file.name,
-        date: new Date().toISOString().split('T')[0],
-        size: (file.size / 1024).toFixed(1) + ' KB'
-      };
-      setMedicalRecords([newRecord, ...medicalRecords]);
+    event.target.value = '';
+    if (!file) return;
+    setUploadError('');
+    const mime = (file.type || '').toLowerCase();
+    if (!ALLOWED_MEDICAL_MIMES.includes(mime)) {
+      setUploadError('Allowed types: PDF, DOC, DOCX, JPG, PNG.');
+      return;
     }
+    if (!activePet?.id) {
+      setUploadError('Please select a pet first.');
+      return;
+    }
+    try {
+      await api.pets.uploadMedicalRecord(activePet.id, file);
+      await fetchMedicalRecords();
+    } catch (e) {
+      setUploadError(e?.message || 'Upload failed.');
+    }
+  };
+
+  const handleViewRecord = async (record) => {
+    if (record.source === 'mock') {
+      setViewingRecord({ type: 'mock', record });
+      return;
+    }
+    if (record.source === 'api' && record.apiId != null && activePet?.id) {
+      setLoadingViewer(true);
+      setViewingRecord({ type: 'api', record });
+      setViewerBlobUrl(null);
+      try {
+        const blob = await api.pets.getMedicalRecordFile(activePet.id, record.apiId);
+        const url = URL.createObjectURL(blob);
+        setViewerBlobUrl(url);
+      } catch (_) {
+        setViewerBlobUrl('');
+      }
+      setLoadingViewer(false);
+    }
+  };
+
+  const closeViewer = () => {
+    if (viewerBlobUrl) URL.revokeObjectURL(viewerBlobUrl);
+    setViewerBlobUrl(null);
+    setViewingRecord(null);
   };
 
   return (
@@ -276,19 +348,21 @@ export default function Stats() {
               ref={fileInputRef} 
               style={{ display: 'none' }} 
               onChange={handleFileUpload} 
-              accept=".pdf,.doc,.docx,.jpg,.png"
+              accept=".pdf,application/pdf"
             />
           </div>
-
+          {uploadError && (
+            <p style={{ margin: '0 0 16px 0', color: colors.danger, fontSize: '13px', fontWeight: '600' }}>{uploadError}</p>
+          )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {medicalRecords.length > 0 ? medicalRecords.map(record => (
+            {allMedicalRecords.length > 0 ? allMedicalRecords.map(record => (
               <div key={record.id} style={{ display: 'flex', alignItems: 'center', padding: '16px', borderRadius: '16px', border: `1px solid ${colors.border}`, backgroundColor: '#F9FAFB' }}>
                 <div style={{ fontSize: '24px', marginRight: '16px' }}>📄</div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: '700', color: colors.textMain, fontSize: '14px' }}>{record.name}</div>
-                  <div style={{ fontSize: '12px', color: colors.textMuted }}>Uploaded on {record.date} • {record.size}</div>
+                  <div style={{ fontSize: '12px', color: colors.textMuted }}>Uploaded on {record.date} • {record.size}{record.source === 'api' ? ' • Saved' : ''}</div>
                 </div>
-                <button style={{ background: 'none', border: 'none', color: colors.primary, fontWeight: '700', cursor: 'pointer', fontSize: '13px' }}>View</button>
+                <button type="button" onClick={() => handleViewRecord(record)} style={{ background: 'none', border: 'none', color: colors.primary, fontWeight: '700', cursor: 'pointer', fontSize: '13px' }}>View</button>
               </div>
             )) : (
               <div style={{ textAlign: 'center', padding: '40px', color: colors.textMuted, fontSize: '14px', border: `2px dashed ${colors.border}`, borderRadius: '20px' }}>
@@ -297,6 +371,83 @@ export default function Stats() {
             )}
           </div>
         </div>
+
+        {/* Viewer modal: scrollable PDF for API records */}
+        {viewingRecord && (
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 2000,
+              background: 'rgba(0,0,0,0.6)',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '24px',
+              boxSizing: 'border-box',
+            }}
+            onClick={(e) => e.target === e.currentTarget && closeViewer()}
+          >
+            <div
+              style={{
+                backgroundColor: 'white',
+                borderRadius: '16px',
+                width: '100%',
+                maxWidth: '900px',
+                maxHeight: '90vh',
+                display: 'flex',
+                flexDirection: 'column',
+                boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+                overflow: 'hidden',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: `1px solid ${colors.border}` }}>
+                <span style={{ fontWeight: '700', color: colors.textMain }}>{viewingRecord.record?.name || 'Medical record'}</span>
+                <button type="button" onClick={closeViewer} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: colors.textMuted, padding: '4px 8px' }}>✕</button>
+              </div>
+              <div style={{ flex: 1, overflow: 'auto', minHeight: '70vh' }}>
+                {viewingRecord.type === 'mock' && (
+                  <p style={{ padding: '40px', color: colors.textMuted, textAlign: 'center' }}>Preview not available for this sample record. Upload a PDF to view it here.</p>
+                )}
+                {viewingRecord.type === 'api' && loadingViewer && (
+                  <p style={{ padding: '40px', color: colors.textMuted, textAlign: 'center' }}>Loading…</p>
+                )}
+                {viewingRecord.type === 'api' && !loadingViewer && viewerBlobUrl && (() => {
+                  const mime = (viewingRecord.record?.mimeType || '').toLowerCase();
+                  const isImage = mime === 'image/jpeg' || mime === 'image/png';
+                  const isPdf = mime === 'application/pdf';
+                  if (isImage) {
+                    return (
+                      <div style={{ padding: '20px', overflow: 'auto', maxHeight: '85vh', textAlign: 'center' }}>
+                        <img src={viewerBlobUrl} alt={viewingRecord.record?.name} style={{ maxWidth: '100%', height: 'auto', display: 'block', margin: '0 auto' }} />
+                      </div>
+                    );
+                  }
+                  if (isPdf) {
+                    return (
+                      <iframe
+                        title="Medical record"
+                        src={viewerBlobUrl}
+                        style={{ width: '100%', height: '85vh', minHeight: '600px', border: 'none' }}
+                      />
+                    );
+                  }
+                  return (
+                    <div style={{ padding: '40px', textAlign: 'center', color: colors.textMuted }}>
+                      <p style={{ marginBottom: '16px' }}>Preview not available for this file type. You can download it to open in another app.</p>
+                      <a href={viewerBlobUrl} download={viewingRecord.record?.name || 'medical-record'} style={{ color: colors.primary, fontWeight: '700' }}>Download file</a>
+                    </div>
+                  );
+                })()}
+                {viewingRecord.type === 'api' && !loadingViewer && !viewerBlobUrl && (
+                  <p style={{ padding: '40px', color: colors.danger, textAlign: 'center' }}>Could not load the file.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

@@ -127,6 +127,34 @@ export const pets = {
     const params = new URLSearchParams({ start, end, include_activity: includeActivity });
     return requestOk("GET", `/pets/${id}/calendar/events?${params}`);
   },
+  // Veterinary / medical records (PDFs)
+  async listMedicalRecords(petId, { visitId, skip = 0, limit = 50 } = {}) {
+    const params = new URLSearchParams({ skip, limit });
+    if (visitId != null) params.set("visit_id", visitId);
+    return requestOk("GET", `/pets/${petId}/veterinary/medical-records?${params}`);
+  },
+  async uploadMedicalRecord(petId, file) {
+    const form = new FormData();
+    form.append("file", file);
+    return requestOk("POST", `/pets/${petId}/veterinary/medical-records`, { formData: form });
+  },
+  /** Fetch medical record PDF as blob (for viewer). Uses auth token. */
+  async getMedicalRecordFile(petId, recordId) {
+    const base = getBaseUrl();
+    const path = `/pets/${petId}/veterinary/medical-records/${recordId}/file`;
+    const url = `${base}${path.startsWith("/") ? path : `/${path}`}`;
+    const token = getToken();
+    const res = await fetch(url, {
+      method: "GET",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      credentials: "omit",
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(text || `Request failed: ${res.status}`);
+    }
+    return res.blob();
+  },
 };
 
 // --- Community ---

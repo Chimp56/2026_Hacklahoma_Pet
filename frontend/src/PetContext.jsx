@@ -6,7 +6,7 @@ export const PetProvider = ({ children }) => {
   // Merged your pets state to include the unique stats for each pet
   const [pets, setPets] = useState([
     { 
-      id: 1, 
+      id: 2, 
       name: "Buddy", 
       type: "Dog", 
       breed: "Golden Retriever", 
@@ -14,7 +14,7 @@ export const PetProvider = ({ children }) => {
       stats: { sleepHours: 8, activityData: [8, 7, 9, 11, 8, 10, 8] } 
     },
     { 
-      id: 2, 
+      id: 1, 
       name: "Luna", 
       type: "Cat", 
       breed: "Siamese", 

@@ -1,6 +1,6 @@
 """CRUD for SleepLog."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Sequence
 
 from sqlalchemy import select
@@ -10,14 +10,25 @@ from app.models.sleep_log import SleepLog
 from app.schemas.habits import SleepLogCreate
 
 
+def _naive_utc(dt: datetime | None) -> datetime | None:
+    """Convert to naive UTC for TIMESTAMP WITHOUT TIME ZONE storage."""
+    if dt is None:
+        return None
+    if dt.tzinfo is not None:
+        dt = dt.astimezone(timezone.utc)
+    return dt.replace(tzinfo=None)
+
+
 class CRUDSleepLog:
     """CRUD for SleepLog."""
 
     async def create(self, db: AsyncSession, *, pet_id: int, obj_in: SleepLogCreate) -> SleepLog:
+        started = _naive_utc(obj_in.started_at)
+        ended = _naive_utc(obj_in.ended_at)
         log = SleepLog(
             pet_id=pet_id,
-            started_at=obj_in.started_at,
-            ended_at=obj_in.ended_at,
+            started_at=started,
+            ended_at=ended,
             duration_minutes=obj_in.duration_minutes,
             notes=obj_in.notes,
             source=obj_in.source,
