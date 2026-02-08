@@ -8,9 +8,10 @@
 body {
   background: #f7f8fa;
   color: #111;
-}
+}*/
 
 /* Navbar */
+
 .navbar {
   display: flex;
   justify-content: space-between;
@@ -38,9 +39,10 @@ body {
   background: #4f46e5;
   color: white;
   border-radius: 6px;
-}
+}*/
 
 /* Landing */
+
 .landing {
   padding: 60px 40px;
 }
@@ -79,9 +81,10 @@ body {
 
 .secondary {
   background: #e5e7eb;
-}
+}*/
 
 /* Features */
+
 .features {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));

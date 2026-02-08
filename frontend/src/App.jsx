@@ -8,12 +8,17 @@ import Camera from "./pages/Camera";
 import Audio from "./pages/Audio";
 import BreedFinder from "./pages/BreedFinder";
 import Settings from "./pages/Settings";
+import CreateProfile from "./pages/CreateProfile";
+import RegisterPet from "./pages/RegisterPet";
+
 
 export default function App() {
   return (
     <>
       <Navbar />
       <Routes>
+        <Route path="/register-pet" element={<RegisterPet />} />
+        <Route path="/create-profile" element={<CreateProfile />} />
         <Route path="/" element={<Landing />} />
         <Route path="/auth" element={<Auth />} />
         <Route path="/home" element={<Home />} />
