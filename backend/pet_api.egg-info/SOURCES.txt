@@ -13,6 +13,7 @@ app/api/v1/endpoints/notifications.py
 app/api/v1/endpoints/pets.py
 app/api/v1/endpoints/stream.py
 app/api/v1/endpoints/users.py
+app/api/v1/endpoints/veterinary.py
 app/core/__init__.py
 app/core/dependencies.py
 app/core/security.py
@@ -36,12 +37,16 @@ app/models/pet.py
 app/models/sleep_log.py
 app/models/user.py
 app/models/user_pet.py
+app/models/vet.py
+app/models/vet_visit.py
 app/schemas/__init__.py
 app/schemas/gemini.py
 app/schemas/habits.py
 app/schemas/medical_record.py
 app/schemas/pet.py
 app/schemas/user.py
+app/schemas/vet.py
+app/schemas/vet_visit.py
 app/services/__init__.py
 app/services/qr_code.py
 app/services/ai/__init__.py

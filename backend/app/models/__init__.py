@@ -11,6 +11,8 @@ from app.models.pet import Pet
 from app.models.sleep_log import SleepLog
 from app.models.user import User
 from app.models.user_pet import user_pets  # noqa: F401 - register table with Base.metadata
+from app.models.vet import Vet
+from app.models.vet_visit import VetVisit
 
 __all__ = [
     "Activity",
@@ -23,4 +25,6 @@ __all__ = [
     "SleepLog",
     "TimestampMixin",
     "User",
+    "Vet",
+    "VetVisit",
 ]
